@@ -1,6 +1,6 @@
 
 
-![](https://github.com/bambom/GameDevelopment-Study-Notes/blob/master/Media/cover2.jpg)
+![](Media/cover2.jpg)
 
 
 
