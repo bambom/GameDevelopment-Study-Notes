@@ -42,7 +42,7 @@
 * [这辈子最讨厌的 Mac]()
   
 * * *
-## 一些网站 很有用的资源
+## 一些网站 很有用的资源 - 学会以产品的角度去看待
 
 - [.NET CORE 最新的源码地址](https://github.com/dotnet/corefx)
 - [Unity的Dot资讯](https://unity.com/cn/dots)
@@ -52,6 +52,9 @@
 - [Bilibili-Unity官方资讯](https://space.bilibili.com/386224375?share_medium=android&share_source=copy_link&bbid=E2846471-B9A6-4694-8ECB-080EE654391329838infoc&ts=1567151662103)
 - [像素骨骼](https://blog.csdn.net/u011771335/article/details/84144098)
 - [将C#转换成Lua的一个开源项目工具库](https://github.com/yanghuan/CSharpLuaForUnity)
+- [UWR开源库-都是一些很叼的东西](https://lab.uwa4d.com/lab/5ce85b3c72745c25a88d3ec3)
+
+- [BitUp 像素游戏](https://mp.weixin.qq.com/s?__biz=MzU5MjQ1NTEwOA==&mid=2247500664&idx=1&sn=d219b6a57807a7f0192679cc08560217&chksm=fe1df7d3c96a7ec57e3d3e535bff3c29b7cc033d09c25128dd3c52b420e95f5ac60a76a92b63&mpshare=1&scene=23&srcid=0830OqmLI3LqVU3L6Mz4BYuY&sharer_sharetime=1567157796668&sharer_shareid=e261171ec7e6c6242755d4b529ecd90b#rd)
 * * *
 
 ## ECS
