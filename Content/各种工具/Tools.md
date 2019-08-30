@@ -1,4 +1,5 @@
-整理各种用的，用过的工具，插件等。以便快速查找
+整理各种用的，用过的工具，插件等。以便快速查找.
+同时摘录一些平时了解到的资源想法工具 
   
   * * *
   
@@ -26,7 +27,11 @@
 - [NVIDIA Nsight Graphics]() -- Dx11,12以上的抓帧逆向分析工具
 - [Snapdragon Profiler]() --- 晓龙处理器抓帧逆向工具
 - [VADebug](http://www.vadebug.cn) -- 
-
+- [GameGuardian](https://gameguardian.net/download) --- dump dll tool
+- [Renderdoc]()--- 一款shader修改和导出工具
+  
+-  [关于 windows dll forward, 直接hook手机打印出shader]() ![](Media/1.jpg) ![](media/2.jpg)
+  
 * * *
   
 ## Plugins
@@ -37,3 +42,22 @@
 * [这辈子最讨厌的 Mac]()
   
 * * *
+## 一些网站 很有用的资源
+
+- [.NET CORE 最新的源码地址](https://github.com/dotnet/corefx)
+- [Unity的Dot资讯](https://unity.com/cn/dots)
+- [设计模式](https://www.runoob.com/design-pattern/proxy-pattern.html)
+- [9秒社区](http://www.appcome.com)
+- [看雪精华帖](https://bbs.pediy.com/user-536985.htm)
+- [Bilibili-Unity官方资讯](https://space.bilibili.com/386224375?share_medium=android&share_source=copy_link&bbid=E2846471-B9A6-4694-8ECB-080EE654391329838infoc&ts=1567151662103)
+- [像素骨骼](https://blog.csdn.net/u011771335/article/details/84144098)
+- [将C#转换成Lua的一个开源项目工具库](https://github.com/yanghuan/CSharpLuaForUnity)
+* * *
+
+## ECS
+
+-[URL-1-一些使用示例](https://lab.uwa4d.com/folder/single/5bf79f7c6822d234aa9eca84)
+- [官方的示例1](https://github.com/Unity-Technologies/EntityComponentSystemSamples)
+- [Git的一个ECS实现](https://github.com/sschmid/Entitas-CSharp#download-entitas@Eddy)
+* * *
+  

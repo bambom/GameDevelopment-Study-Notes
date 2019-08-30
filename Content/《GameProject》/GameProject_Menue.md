@@ -102,14 +102,9 @@
   * [关于优化](#16)
   
 * * *
-
-* [包、更新、运维]()
-
-* * *
- 
-  * [出包的思考]()
-  * [经常会忘记的Xcode折腾的东西]()
-
+ * [GC、语言](#17)
+  GC,数据结构，字典，List. 什么情况使用什么数据结构。 一个操作有什么消耗。
+  [垃圾回收](https://connect.unity.com/doc/Manual/UnderstandingAutomaticMemoryManagement)
 
 
 <h3 id = "#002">事件系统</h3>

@@ -1,4 +1,17 @@
 
+* [包、更新、运维]()
+
+* * *
+ 
+  * [出包的思考]()
+  
+    1. 安卓和IOS的分支在版本封包前，需要提前进行处理，导工程，打bundle都需要时间。
+    2. 新建的分支bundle需要把旧的bundle删除，然后重新打bundle。
+    3. 改外链直接在SVN上先改了，然后再dump
+
+
+  * [经常会忘记的Xcode折腾的东西]()
+
 * [创建开发者账号证书](#01)
     * 首先要出IOS的包作为发布版本需要发布证书签名。 
     * [开发者平台](https://developer.apple.com/devcenter/ios/index.action)
