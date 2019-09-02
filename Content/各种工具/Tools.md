@@ -56,8 +56,11 @@
 
 - [BitUp 像素游戏](https://mp.weixin.qq.com/s?__biz=MzU5MjQ1NTEwOA==&mid=2247500664&idx=1&sn=d219b6a57807a7f0192679cc08560217&chksm=fe1df7d3c96a7ec57e3d3e535bff3c29b7cc033d09c25128dd3c52b420e95f5ac60a76a92b63&mpshare=1&scene=23&srcid=0830OqmLI3LqVU3L6Mz4BYuY&sharer_sharetime=1567157796668&sharer_shareid=e261171ec7e6c6242755d4b529ecd90b#rd)
   
+
+- [垃圾回收算法手册：自动内存管理的艺术](https://book.douban.com/subject/26740958/)
 * * *
-  
+- [垃圾回收的算法与实现](https://book.douban.com/subject/26821357/)
+
 - [官方使用VisualEffectGraph和HDRP制作的一个3A的第一人称视角Demo](https://github.com/Unity-Technologies/SpaceshipDemo)
 
 * * *
