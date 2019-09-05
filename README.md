@@ -39,6 +39,7 @@
 - [《两周自制脚本语言》]()
 - [《一个64位操作系统的设计与实现》]()
 - [《自制编程语言》]()
+- [《GPU编程语言与CG语言》]
 
 - [垃圾回收算法手册：自动内存管理的艺术](https://book.douban.com/subject/26740958/)
 - [垃圾回收的算法与实现](https://book.douban.com/subject/26821357/)
@@ -74,7 +75,7 @@
 
 * * *
 ## Other
-
+- [《咨询的奥秘：寻求和提出建议的智慧》]
 - [《有用的商学课》随听摘录](https://github.com/bambom/GameDevelopment-Study-Notes/blob/master/Content/%E3%80%8A%E6%9C%89%E7%94%A8%E7%9A%84%E5%95%86%E5%AD%A6%E8%AF%BE%E3%80%8B/README.md)
 
 ## GameProject * 框架
