@@ -10,6 +10,9 @@
 * [ILR实现原理](#007)
 * [iOS IL2CPP打包注意事项](#008)
 * [ILR性能优化建议](#009)
+* [适应ILR的Protobuff改造](#010)
+* [网络模块框架](#011)
+* [IL下的逻辑热更框架](#012)
 
 * [常见问题链接(FAQ)](https://github.com/Ourpalm/ILRuntime/tree/master/docs/source/src/v1/guide)
 <h1 id="001">1、调用方式 </h3>
@@ -725,3 +728,83 @@ void Update()
 ```
 
 通过缓存IMethod实例以及参数列表数组，可以做到这个Update操作不会产生任何额外的GC Alloc，并且以最高的性能来执行
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
+<h1 id="010">10、适应ILR的Protobuff改造 </h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
+<h1 id="011">11、网络模块框架 </h3>
+
+目标
+* 协议分层，NativeProto,HotFixProto.
+
+执行
+* 网络框架部分，需要将粘包和协议解析做分离处理，以适应热更层的协议热更
+
+* proto生成工具做NativeProto 、 HotFixProto的分离生成
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
+<h1 id="012">12、IL下的逻辑热更框架 </h3>
+
+非热更的模块系统：
+* AssetManager Runtime
+* AutoPath Runtime
+* Player Actor Runtime
+* Net Runtime
+* UI Manger Runtime
+* Module Kit Runtime
+
+可热更的模块系统：
+* Game Driver Script
+* UI Logic Script
+* Proto Struct Script
+* Table Struct Script
+
+
+游戏的逻辑脚本，都可以放到热更中。 因为游戏逻辑是事件驱动式的，只要吧重量级的东西放到unity层中就ok了。
