@@ -7,3 +7,14 @@ GameNative(不可热更) ：这部分是游戏不怎么依赖引擎功能的部�
 GameProto(可热更) ： 纯粹的热更协议部分。
 
 划分的好处。使项目整体代码结构清晰规整。有利于减缓项目腐化。千万不要说放一起又怎么滴怎么滴的话。没有经历过一个月一个版本的开发迭代的，不知道要维护好项目代码是多难。代码越腐化，开发维护的时间越多。无形的成本是对自身的压榨。能帮自己减轻负担就减轻点吧。
+
+![](Media/Game_1.jpg)
+![](Media/Game_2.jpg)
+![](Media/Game_3.jpg)
+![](Media/Game_4.jpg)
+![](Media/Game_5.jpg)
+![](Media/Game_6.jpg)
+![](Media/Game_7.jpg)
+![](Media/Game_8.jpg)
+![](Media/GameBase.jpg)
+![](Media/GameNative.jpg)
