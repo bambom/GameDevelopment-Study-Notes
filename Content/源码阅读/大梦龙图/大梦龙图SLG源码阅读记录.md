@@ -16,5 +16,8 @@ GameProto(可热更) ： 纯粹的热更协议部分。
 ![](Media/Game_6.jpg)
 ![](Media/Game_7.jpg)
 ![](Media/Game_8.jpg)
+![](Media/Game_9.jpg)
+![](Media/Game_10.jpg)
+![](Media/Game_11.jpg)
 ![](Media/GameBase.jpg)
 ![](Media/GameNative.jpg)
