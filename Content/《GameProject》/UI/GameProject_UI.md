@@ -24,5 +24,12 @@
     * 有,无Layout Element, Child Force Expand :强制将子元素等比分配父元素的区域，但是子元素大小不变，保持原样。
     * 选了Child Force Expand,子元素的Layout Element 设置了Felxible Width/Height ,会按照设置的比例将父元素区域分配，勾选Control Child Size,则，子元素大小由Layout Elemnt 控制。
     * Min Height/Width、Preferred Height/Width 和Control Child Size(勾选了 Min 和 Preferred 才会生效). 
-  如果要子元素大小不一的话，就勾选Control Child Size,然后Layout Element 控制元素的具体大小，配合ControlAutoSize 可以达到Content 自动扩充大效果。 然后通过让子元素自动向四周拓展，可以做让背景随子元素移动扩充的效果。 如果是让元素自动布局的话，就选Force Expand 让元素自己布局扩充
+  如果要子元素大小不一的话，就勾选Control Child Size,然后Layout Element 控制元素的具体大小，配合ControlAutoSize 可以达到Content 自动扩充大效果。 然后通过让子元素自动向四周拓展，可以做让背景随子元素移动扩充的效果。 如果是让元素自动布局的话，就选Force Expand 让元素自己布局扩充。
+- 3、简单的布局适配。
+   适配只要运用好锚点，可以很容易的做到。
 
+列举一种适配方案，通过，设置包UGUI的锚点布局，通过变更适配节点的Rect来适配。 这种方式的优点是在Unity提供了安全区域的前提下，可以不用原生代码进行适配，缺点是需要计算rect区域大小。
+![](Media/shipei1.png)
+![](Media/shipei2.png)
+![](Media/shipei3.png)
+![](Media/shipei4.png)
