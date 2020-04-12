@@ -1,0 +1,10 @@
+[
+{"asset":"Assets/Resources/Luac","priority":0,"deep":0},
+{"asset":"Assets/Resources/SkillDisp","priority":2,"deep":0},
+{"asset":"Assets/Resources/Media/UI","priority":2,"deep":-1},
+{"asset":"Assets/Textures/Background","priority":3,"deep":1},
+{"asset":"Assets/Textures/Plot","priority":3,"deep":1},
+{"asset":"Assets/Textures/Mask","priority":4,"deep":1},
+{"asset":"Assets/Resources/Effect","priority":5,"deep":-1},
+{"asset":"Assets/Prefabs/Plants","priority":4,"deep":-1},
+]

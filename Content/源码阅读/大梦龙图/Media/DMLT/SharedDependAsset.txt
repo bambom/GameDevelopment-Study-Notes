@@ -1,0 +1,5 @@
+Assets/Resources/UIRaw
+Assets/Prefabs/Scene
+Assets/Prefabs/Plants
+Assets/Resources/Actor
+Assets/Resources/Effect
