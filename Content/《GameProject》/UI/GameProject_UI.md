@@ -14,6 +14,8 @@
 
 <h3 id="001">1、 Layout Group </h3>
 
+[定制UGUI减少消耗](https://www.jianshu.com/p/3edce67cb473)
+
 使用UGUI的布局组建，结合ScrollView能拓展出一些常用的功能组件。
 先了解基本组件：
 ![](Media/LayoutGroup.png)

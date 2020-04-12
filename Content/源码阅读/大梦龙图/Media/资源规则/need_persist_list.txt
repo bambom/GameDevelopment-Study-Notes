@@ -1,0 +1,7 @@
+Effect/Tips
+Effect/Shadow
+Media/AudioPlayer
+Texture/Decals
+UI/ModalSprite
+UI/TalkUI
+Actor/Bianshen/bianshen

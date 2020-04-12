@@ -1,0 +1,11 @@
+[
+{"asset":"Effect/common","time":120, "poolcnt":30},
+{"asset":"Effect/hero","time":120, "poolcnt":30},
+{"asset":"Effect/guai","time":120, "poolcnt":30},
+{"asset":"Media/UI", "time":0},
+{"asset":"Media/Skill", "time":300},
+{"asset":"Media/Voice", "time":300},
+{"asset":"Actor/", "time":180, "poolcnt":30},
+{"asset":"Animator/", "time":0},
+{"asset":"UI/", "time":120}
+]
