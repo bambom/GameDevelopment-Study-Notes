@@ -1,12 +1,12 @@
  [Cmake 一些基本语法的学习](#000)
  [编译Protobuff 源码](#001)
  
- <h3 id= "000">Cmake 一些基本语法的学习 </h3>    
+ <h3 id= "000">一、 Cmake 一些基本语法的学习 </h3>    
 
 
 
 
- <h3 id= "001">编译Protobuff 源码</h3>    
+ <h3 id= "001">二、 编译Protobuff 源码</h3>    
  由于适配ILR protobuff 需要做些更改。涉及到protobuff的编译，和相关protoc 工具的编译。
  
 需要准备的原材料[Protobuff]() 
@@ -39,3 +39,5 @@
   ![](Media/vs_cmd_6_install.jpg)
 
   [# 参考文档](https://blog.csdn.net/zxng_work/article/details/78936444#%E4%B8%8B%E8%BD%BD%E4%BB%A3%E7%A0%81)
+
+  cmake -G "Visual Studio 16 2019"  -DCMAKE_INSTALL_PREFIX=./ConvertProject ./

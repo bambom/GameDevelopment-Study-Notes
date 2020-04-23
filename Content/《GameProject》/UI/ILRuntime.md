@@ -1,13 +1,14 @@
 
-<h1 id="000">0、ILR </h3>
-
-* [调用方式](#001)
+* [前置](#000)
+* [ILR基于栈的解释器实现原理](#001)
+* [ILR的类型加载](#0011)
+* [ILR的类型实例创建](#0012)
+* [ILR的类型函数调用](#0013)
 * [ILR使用委托](#002)
 * [ILR跨域继承](#003)
 * [ILR中的反射](#004)
 * [CLR重定向](#005)
 * [CLR绑定](#006)
-* [ILR实现原理](#007)
 * [iOS IL2CPP打包注意事项](#008)
 * [ILR性能优化建议](#009)
 * [适应ILR的Protobuff改造](#010)
@@ -15,7 +16,1460 @@
 * [IL下的逻辑热更框架](#012)
 
 * [常见问题链接(FAQ)](https://github.com/Ourpalm/ILRuntime/tree/master/docs/source/src/v1/guide)
-<h1 id="001">1、调用方式 </h3>
+* [OLOpCode Enum](https://docs.microsoft.com/en-us/dotnet/api/system.reflection.metadata.ilopcode?view=netcore-3.1)
+
+<h1 id="000">0、CLR运行时 </h3>
+
+* 栈: 在计算机系统中，栈也可以称之为栈内存是一个具有动态内存区域,存储函数内部（包括main函数）的局部变量和方法调用和函数参数值，是由系统自动分配的，一般速度较快；存储地址是连续且存在有限栈容量，会出现溢出现象程序可以将数据压入栈中，也可以将数据从栈顶弹出。压栈操作使得栈增大，而弹出操作使栈减小。栈用于维护函数调用的上下文，离开了栈函数调用就没法实现。
+
+* 栈帧(Stack Frame)：每一次函数的调用,都会在调用栈(call stack)上维护一个独立的栈帧(stack frame).每个独立的栈帧一般包括: 
+    * 函数的返回地址和参数.
+    *  临时变量: 包括函数的非静态局部变量以及编译器自动生成的其他临时变量
+    *  函数调用的上下文 和一些额外的附加信息。 每个函数的栈帧大小在函数编译的时候就已经确定大小，运行时大小取决于栈帧运行时如何存储组织数据的实现。<br>
+
+* ESP（Extended Stack Pointer）为扩展栈指针寄存器，是指针寄存器的一种，用于存放函数栈顶指针,指向栈的栈顶（下一个压入栈的活动记录的顶部）。维护函数调用运行时的变量寄存器<br>
+
+* EBP（Extended Base Pointer），扩展基址指针寄存器，也被称为帧指针寄存器，用于存放函数栈底指针,指向当前活动记录的底部。主要用于维护栈帧的一个存储寄存器<br>
+
+操作系统栈帧：
+![](Media/stackframe.png)
+
+    函数调用：
+
+        参数入栈: 将参数按照调用约定(C 是从右向左)依次压入系统栈中;
+        返回地址入栈: 将当前代码区调用指令的下一条指令地址压入栈中，供函数返回时继续执行;
+        代码跳转: 处理器将代码区跳转到被调用函数的入口处;
+        栈帧调整的操作: 
+            1.push ebp ;将调用者的ebp压栈处理，保存指向栈底的ebp的地址（方便函数返回之后的现场恢复），此时esp指向新的栈顶位置； -- 当前esp是上一个的ebp。
+            2.mov ebp, esp ;   将当前栈帧切换到新栈帧(将esp值装入ebp，更新栈帧底部), 这时ebp指向栈顶，而此时栈底就是old ebp；   
+            3.sub esp,xxx  ;   设置新栈帧的顶部 (抬高栈顶，为新栈帧开辟空间) (减是因为内存分配从高到低)
+        指令调用：执行函数指令。
+
+    函数返回：
+
+        1、 mov eax, xxx ; 保存返回值，通常将函数的返回值保存在寄存器EAX中。 
+        2、 mov ebp, esp ; 恢复 esp 同时回收局部变量空间.
+        3、将上一个栈帧底部位置恢复到 ebp； pop ebp
+        4、弹出当前栈顶元素,从栈中取到返回地址,并跳转到该位置 ret;
+    
+
+引用类型：<br>
+
+    * 内存必须从托管堆分配。<br>
+    * 堆上分配的每个对象都有一些额外的成员，这些成员必须初始化。<br>
+    * 对象中的其他字节(为字段而设)总是设为零。<br>
+    * 从托管堆分配对象时，可能强制执行一次垃圾回收。<br>
+<br>
+
+值类型：<br>
+
+    * 值类型的实例一般在线程栈上分配(虽然也有可能作为字段嵌入引用类型的对象中这时候是分配在堆上的)<br>
+    * 执行类实例的变量中不包含指向实例的指针。变量中包含了实例本身的字段。操作实例中的字段不需要提领指针。<br>
+    * 值类型的实例不受垃圾回收器的控制()。<br>
+<br>
+
+<br>
+
+![](Media/CLR_Type.png)
+
+<br>
+
+* unsafe: 关键字表示不安全上下文，该上下文是任何涉及指针的操作所必需的。不安全代码就是允许自己使用指针访问内存，但同时又要使用CLR提供的垃圾回收机制、类型安全检查等服务，有的资料认为是介于CLR和非托管代码之间的一种代码运行机制，也可以理解。<br>
+
+* 托管代码就是由CLR去执行的代码而不是操作系统去执行的代码。<br>
+
+* 而非托管代码就是绕过CLR，由操作系统直接执行，它有自己的垃圾回收、类型安全检查等服务。<br>
+
+* fixed : 语句设置指向托管变量的指针，并在执行该语句期间"固定"此变量。这样就可以防止变量的重定位。<br>
+
+
+* 指针：一个特殊的变量，它里面存储的数值被解释为内存的一个地址。指针类型不从 object 继承，并且指针类型与 object 之间不存在转换。 此外，装箱和取消装箱不支持指针。 但是，可在不同的指针类型之间以及指针类型和整型之间进行转换。<br>
+    操作指针只需要操作一个4字节，操作类型对象涉及到复制拷贝等各种过程，因此操作指针更快。
+    * 指针的类型：【int *ptr//指针的类型是int *  】【int **ptr; //指针的类型是 int ** 指向int *指针的指针】<br>
+    * 指针指项的类型:【int *ptr; //指针的类型是int 】【int **ptr; //指针的类型是 int *】<br>
+    * 指针的值：和操作系统有关，32位就是32位长度的一个值。64位就是64位长度的值。 <br>
+    * 指针所指向的内存区：从指针的值所代表的内存地址开始，长度为sizeof(指针所指向的类型)的一片内存区域。<br>
+    * 指针运算符： *p 间接预算符 ，就是p地址所指向的东西 ; &p 取址运算符：取p的地址<br>
+
+
+<br>
+
+函数执行：
+
+```C#
+class Program
+{
+    public static void Main(string[] args)
+    {
+        CLR_8 cLR_8 = new CLR_8();
+        string hhName = "Bambom";
+        int hh = 999;
+        var myage= cLR_8.GetAge(hh);
+        Console.WriteLine(hhName + " : age:" + myage);
+    }
+}
+
+/*********************************************************************/
+
+.method public hidebysig static void  Main(string[] args) cil managed
+{
+  .entrypoint
+  // 代码大小       52 (0x34)
+  .maxstack  3
+  .locals init ([0] class CLR._8.CLR_8 cLR_8, //在计算机上分配4个本地变量
+           [1] string hhName,
+           [2] int32 hh,
+           [3] int32 myage)
+  IL_0000:  nop       /*如果修补操作码，则填充空间。尽管可能消耗处理周期，但未执行任何有意义的操作。*/
+  IL_0001:  newobj     instance void CLR._8.CLR_8::.ctor() /* 创建一个值类型的新对象或新实例，并将对象引用（O 类型）推送到计算堆栈上。*/
+  IL_0006:  stloc.0    /*从计算堆栈的顶部弹出当前值并将其存储到指定索引处的局部变量列表中。*/
+  IL_0007:  ldstr      "Bambom" /*推送对元数据中存储的字符串的新对象引用。*/
+  IL_000c:  stloc.1     //给hhName 赋值
+  IL_000d:  ldc.i4     0x3e7  /*将所提供的 int64 类型的值作为 int64 推送到计算堆栈上。*/
+  IL_0012:  stloc.2     //给hh 赋值
+  IL_0013:  ldloc.0     /*将指定索引0处的局部变量加载到计算堆栈上。*/  /*将函数类型实例压入栈 供调用*/
+  IL_0014:  ldloc.2     /*将指定索引2处的局部变量加载到计算堆栈上。*/  /*将参数压入栈*/
+  IL_0015:  callvirt   instance int32 CLR._8.CLR_8::GetAge(int32)  /*对对象调用后期绑定方法，并且将返回值推送到计算堆栈上。 调用实例函数*/
+  IL_001a:  stloc.3     /*将当前栈顶的函数返回值 赋值给myage*/
+  IL_001b:  ldloc.1     /*将指索引1的局部变量加载到计算堆栈上。 hhName*/ 
+  IL_001c:  ldstr      " : age:"
+  IL_0021:  ldloca.s   myage /*将位于特定索引处的局部变量的地址加载到计算堆栈上。*/
+  IL_0023:  call       instance string [mscorlib]System.Int32::ToString() /*将当前栈顶myage转换成str并覆盖*/
+  IL_0028:  call       string [mscorlib]System.String::Concat(string,    /*将栈顶的三个参数合并并放到栈顶*/
+                                                              string,
+                                                              string)
+  IL_002d:  call       void [mscorlib]System.Console::WriteLine(string)  /*调用打印*/
+  IL_0032:  nop
+  IL_0033:  ret         /*从当前方法返回，并将返回值（如果存在）从调用方的计算堆栈推送到被调用方的计算堆栈上。*/
+} // end of method Program::Main
+
+/***********************************************************************************/
+internal sealed class CLR_8
+    {
+        private Int32 m_x;
+        public CLR_8() { }
+        public int GetAge(int mama)
+        {
+            var baba = 1993;
+            var myAge = baba + mama + m_x;
+            return myAge;
+        }
+    }
+/***********************************************************************************/
+
+创建一个新的栈帧，有前置代码对参数，本地变量，函数类型对象，函数地址，函数执行完前会将返回值放入栈顶。
+
+.method public hidebysig instance int32  GetAge(int32 mama) cil managed
+{
+  // 代码大小       24 (0x18)
+  .maxstack  2
+  .locals init ([0] int32 baba,   //分配本地变量
+           [1] int32 ,           // myage
+           [2] int32 V_2)         //创建的返回值，这里是创建 复制 拷贝的过程
+  IL_0000:  nop
+  IL_0001:  ldc.i4     0x7c9  /*将所提供的 int32 类型的值作为 int32 推送到计算堆栈上。  */ baba
+  IL_0006:  stloc.0           /*  从计算堆栈的顶部弹出当前值并将其存储到指定索引处的局部变量列表中。*/给baba赋值
+  IL_0007:  ldloc.0           /* 将指定索引 0 处的局部变量加载到计算堆栈上。*/   baba
+  IL_0008:  ldarg.1           /* 将索引为 1 的参数加载到计算堆栈上。 */ 参数有两个 一个是函数对象实例本身 ，一个是参数 mama 
+  IL_0009:  add               /*将两个值相加并将结果推送到计算堆栈上。*/ baba + mama ---- addValue0
+  IL_000a:  ldarg.0           /*将指定索引0处的局部变量加载到计算堆栈上。  */   CLR_8的实例对象放到栈顶
+  IL_000b:  ldfld       int32 CLR._8.CLR_8::m_x /* 查找对象中其引用当前位于计算堆栈的字段的值。*/ 将指定对象的值放到栈顶
+  IL_0010:  add         addValue0 + m_x  值放入栈顶
+  IL_0011:  stloc.1     将栈顶值存放入 局部变量myAge
+  IL_0012:  ldloc.1     将 局部变量myAge 放入栈顶
+  IL_0013:  stloc.2     将 myage放入V_2 临时变量
+  IL_0014:  br.s        IL_0016 /无条件地将控制转移到目标指令。/
+  IL_0016:  ldloc.2     将局部变量2 放入栈顶 .作为函数返回值
+  IL_0017:  ret         返回
+} // end of method CLR_8::GetAge
+当前
+
+ 可以看到返回值是会另外在创建对象，然后进行复制返回。
+
+```
+<br>
+
+
+
+<br>
+
+值类型的装箱和拆箱：<br>
+大部分的类型对象使用时都有对值类型的装箱和拆箱：
+stack.Push(object) 使用值类型会引发值类型转换成引用类型的操作，也就是装箱机制。
+
+    * 在托管堆中分配内存。分配的内存量是值类型各字段所需的内存量，还要机上托管堆所有对象都有的两个额外成员(类型对象指针和同步索引快)所需的内存量。
+    * 值类型的字段复制到新分配的堆内存。
+    * 返回对象地址。现在该地址是对象引用；值类型成了引用类型。 
+
+泛型集合类运行在对值类型的集合时不需要对集合中的项，进行装修/拆箱。
+
+拆箱：
+拆箱代价比装箱低的多。拆箱是获取指针的过程，该指针指向包含在一个对象中的原始值类型(数据字段)。指针指向的是已装箱实例中未装箱的部分。所以和装箱不同，拆箱
+不要求在内存中复制任何字节。拆箱往往紧接着一次字段复制。
+
+
+备注：FCL, Framework Class Library Framework类库。
+泛型：CLR 允许创建泛型引用类型和泛型值类型，但不允许创建泛型枚举，同时也支持创建泛型接口和泛型委托。由于值类型的实例可以传值进行传递，CLR不需要执行任何装箱操作。
+
+
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
+<h1 id="001">1、ILR实现原理 </h3>
+
+ILRuntime借助Mono.Cecil库来读取DLL的PE信息，以及当中类型的所有信息，最终得到方法的IL汇编码，然后通过内置的IL解译执行虚拟机来执行DLL中的代码。
+
+IL托管栈和托管对象栈
+
+***
+
+ * 为了高性能进行运算，尤其是栈上的基础类型运算，如int,float,long之类类型的运算，直接借助C#的Stack类实现IL托管栈肯定是个非常糟糕的做法。因为这意味着每次读取和写入这些基础类型的值，都需要将他们进行装箱和拆箱操作，这个过程会非常耗时并且会产生巨量的GC Alloc，使得整个运行时执行效率非常低下。(泛型集合对于基础类型不会再装修和拆箱，但是栈本身的操作还是没有操作内存更快和方便。指令操作涉及到创建对象，拷贝对象等，例如参数加载到计算机堆栈的指令。直接使用指针操作内存，还可以减少使用对象的拷贝复制等操作。)<br>
+
+* 因此ILRuntime使用unsafe代码以及非托管内存，实现了自己的IL托管栈(使用unsafe代码直接操作非托管内存，自己进行运行栈内存分配释放)。<br>
+
+* ILRuntime中的所有对象都是以StackObject类来表示的，他的定义如下：
+```C#
+    struct StackObject
+    {
+        public ObjectTypes ObjectType;
+        public int Value; //高32位
+        public int ValueLow; //低32位
+    }
+    enum ObjectTypes
+    {
+        Null,//null
+        Integer,
+        Long,
+        Float,
+        Double,
+        StackObjectReference,//引用指针，Value = 指针地址, 
+        StaticFieldReference,//静态变量引用,Value = 类型Hash， ValueLow= Field的Index
+        Object,//托管对象，Value = 对象Index
+        FieldReference,//类成员变量引用，Value = 对象Index, ValueLow = Field的Index
+        ArrayReference,//数组引用，Value = 对象Index, ValueLow = 元素的Index
+    }
+```
+
+通过StackObject这个值类型，我们可以表达C#当中所有的基础类型，因为所有基础类型都可以表达为8位到64位的integer。对于非基础类型而言，我们额外需要一个List来储存他的object引用对象，而Value则可以存储这个对象在List中的Index。由此我们就可以表达C#中所有的类型了。
+
+```C#
+    unsafe class RuntimeStack : IDisposable
+    {
+        ILIntepreter intepreter; //解释器
+        StackObject* pointer;    //非托管栈栈起始地址
+        StackObject* endOfMemory;//非托管栈栈结束地址
+        StackObject* valueTypePtr;//非托管栈的运行栈内存地址
+
+        IntPtr nativePointer;
+
+#if DEBUG && !DISABLE_ILRUNTIME_DEBUG
+        IList<object> managedStack = new List<object>(32); //存储引用类型对象的托管栈，充当CLR堆功能
+#else
+        IList<object> managedStack = new UncheckedList<object>(32);
+#endif
+
+        Stack<StackFrame> frames = new Stack<StackFrame>();//函数栈帧
+        public const int MAXIMAL_STACK_OBJECTS = 1024 * 16;
+
+        public Stack<StackFrame> Frames { get { return frames; } }
+        public RuntimeStack(ILIntepreter intepreter)
+        {
+            this.intepreter = intepreter;
+
+            nativePointer = System.Runtime.InteropServices.Marshal.AllocHGlobal(sizeof(StackObject) * MAXIMAL_STACK_OBJECTS); //非托管内存
+            pointer = (StackObject*)nativePointer.ToPointer();
+            endOfMemory = Add(pointer, MAXIMAL_STACK_OBJECTS);
+            valueTypePtr = endOfMemory - 1;
+        }
+        public void Dispose()
+        {
+            if (nativePointer != IntPtr.Zero)
+            {
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(nativePointer);
+                nativePointer = IntPtr.Zero;
+            }
+        }
+        ~RuntimeStack()
+        {
+            Dispose();
+        }
+```
+
+
+
+托管调用栈
+-----------------------------
+ILRuntime在进行方法调用时，遵循以下步骤：
+
+    1、需要将方法的参数先压入托管栈。
+    2、然后执行函数：
+        初始化函数栈帧 -> 
+        创建分配本地变量内存 ->初始化本地变量 ->
+        执行完所有函数指令 -> (中间会有函数调用，跳转到第二步，直到最底层调用执行完，然后依次返回)
+        移除当前栈帧 ->
+        将ILR运行栈还原，并把方法返回值压入栈,更新当前栈指针。将CLR托管栈还原。
+
+```C#
+        /// <summary>
+        /// 基于栈的函数执行
+        /// 这里是外部直接调用函数。在函数执行指令中，将参数，本地变量，函数实例对象，函数指针推入栈是由函数指令完成这些前置操作的
+        /// </summary>
+        public object Run(ILMethod method, object instance, object[] p)
+        {
+            //执行函数的的前置操作
+            IList<object> mStack = stack.ManagedStack;
+            int mStackBase = mStack.Count;
+            StackObject* esp = stack.StackBase;//当前栈顶指针
+            stack.ResetValueTypePointer();
+            if (method.HasThis)
+            {
+                if (instance is CrossBindingAdaptorType) //跨域继承的适配对象
+                    instance = ((CrossBindingAdaptorType)instance).ILInstance;
+                if (instance == null)
+                    throw new NullReferenceException("instance should not be null!");
+                esp = PushObject(esp, mStack, instance); //先将 类型实例压入栈，如果需要用到实例的话
+            }
+            esp = PushParameters(method, esp, p);//将参数压入栈 / 函数对象的实例是不是也算一个参数 ？
+            bool unhandledException;
+            esp = Execute(method, esp, out unhandledException);//可以执行函数了
+            //返回栈顶返回值
+            object result = method.ReturnType != domain.VoidType ? method.ReturnType.TypeForCLR.CheckCLRTypes(StackObject.ToObject((esp - 1), domain, mStack)) : null;
+            //ClearStack
+#if DEBUG && !DISABLE_ILRUNTIME_DEBUG
+            ((List<object>)mStack).RemoveRange(mStackBase, mStack.Count - mStackBase); //执行完毕函数清除当前函数栈引用
+#else
+            ((UncheckedList<object>)mStack).RemoveRange(mStackBase, mStack.Count - mStackBase);
+#endif
+            return result;
+        }
+
+        /// <summary> 添加完参数，开始执行函数 </summary>
+        internal StackObject* Execute(ILMethod method, StackObject* esp, out bool unhandledException)
+        {
+            if (method == null)
+                throw new NullReferenceException();
+#if DEBUG && (UNITY_EDITOR || UNITY_ANDROID || UNITY_IPHONE)
+            if (System.Threading.Thread.CurrentThread.ManagedThreadId == AppDomain.UnityMainThreadID)
+
+#if UNITY_5_5_OR_NEWER
+                UnityEngine.Profiling.Profiler.BeginSample(method.ToString());
+#else
+                UnityEngine.Profiler.BeginSample(method.ToString());
+#endif
+
+#endif
+            OpCode[] body = method.Body;
+            StackFrame frame;
+            stack.InitializeFrame(method, esp, out frame);//创建栈帧，记录相关信息用以平衡栈，分配本地变量内存地址，更新栈指针
+            StackObject* v1 = frame.LocalVarPointer; 
+            StackObject* v2 = frame.LocalVarPointer + 1;
+            StackObject* v3 = frame.LocalVarPointer + 1 + 1;
+            StackObject* v4 = Add(frame.LocalVarPointer, 3);//预先创建用于opcode操作的本地变量指针，方便指令对本地变量操作直接使用
+            int finallyEndAddress = 0;
+
+            esp = frame.BasePointer; //当前栈帧的起始栈指针
+            var arg = Minus(frame.LocalVarPointer, method.ParameterCount);//参数在函数执行前的前置工作就已经压入栈，这时候定位，取出参数的起始地址
+            IList<object> mStack = stack.ManagedStack;
+            int paramCnt = method.ParameterCount;
+            if (method.HasThis)//this parameter is always object reference | 如果是需要对实例对象，则还要算上实例本身？
+            {
+                arg--;
+                paramCnt++;
+            }
+            unhandledException = false;
+            StackObject* objRef, objRef2, dst, val, a, b, arrRef;
+            object obj;
+            IType type;
+            Type clrType;
+            int intVal;
+
+            //Managed Stack reserved for arguments(In case of starg)
+            for (int i = 0; i < paramCnt; i++)
+            {
+                a = Add(arg, i);
+                switch (a->ObjectType)
+                {
+                    case ObjectTypes.Null:
+                        //Need to reserve place for null, in case of starg
+                        a->ObjectType = ObjectTypes.Object;
+                        a->Value = mStack.Count;
+                        mStack.Add(null);
+                        break;
+                    case ObjectTypes.ValueTypeObjectReference:
+                        CloneStackValueType(a, a, mStack);
+                        break;
+                    case ObjectTypes.Object:
+                    case ObjectTypes.FieldReference:
+                    case ObjectTypes.ArrayReference:
+                        frame.ManagedStackBase--;
+                        break;
+                }
+            }
+
+            stack.PushFrame(ref frame); //存储栈帧信息
+            
+            int locBase = mStack.Count;
+            //Managed Stack reserved for local variable
+            for (int i = 0; i < method.LocalVariableCount; i++) //预分配本地变量托管栈对象内存
+            {
+                mStack.Add(null);
+            }
+
+            //给分配的本地变量内存块初始化本地类型变量
+            for (int i = 0; i < method.LocalVariableCount; i++)
+            {
+                var v = method.Variables[i];
+                //是值类型，且不是基元类型
+                if (v.VariableType.IsValueType && !v.VariableType.IsPrimitive)
+                {
+                    var t = AppDomain.GetType(v.VariableType, method.DeclearingType, method);
+                    if (t is ILType) //是ilr中的值类型，直接在非托管栈上分配内存
+                    {
+                        //var obj = ((ILType)t).Instantiate(false);
+                        var loc = Add(v1, i);//获取第i个本地变量的地址
+                        stack.AllocValueType(loc, t);
+
+                        /*loc->ObjectType = ObjectTypes.Object;
+                        loc->Value = mStack.Count;
+                        mStack.Add(obj);*/
+
+                    }
+                    else //是CLR中的值类型
+                    {
+                        CLRType cT = (CLRType)t;
+                        var loc = Add(v1, i);//获取第i个本地变量的地址
+                        if (cT.ValueTypeBinder != null)//如果做了值绑定，则在非托管栈上分配内存
+                        {
+                            stack.AllocValueType(loc, t);
+                        }
+                        else//纯CLR类型，则一律当成object，创建的实例对象放到托管栈上
+                        {
+                            obj = ((CLRType)t).CreateDefaultInstance();
+                            loc->ObjectType = ObjectTypes.Object;
+                            loc->Value = locBase + i;
+                            mStack[locBase + i] = obj;
+                        }
+                    }
+                }
+                else //引用类型
+                {
+                    if (v.VariableType.IsPrimitive) //不是基元类型的引用类型， object
+                    {
+                        var t = AppDomain.GetType(v.VariableType, method.DeclearingType, method);
+                        var loc = Add(v1, i);//获取第i个本地变量的地址
+                        StackObject.Initialized(loc, t); //初始化第i个本地变量
+                    }
+                    else //正常的引用类型
+                    {
+                        var loc = Add(v1, i);
+                        loc->ObjectType = ObjectTypes.Object;
+                        loc->Value = locBase + i;
+                    }
+                }
+            }
+
+            var bp = stack.ValueTypeStackPointer;
+            ValueTypeBasePointer = bp;
+            fixed (OpCode* ptr = body)// 开始执行函数指令
+            {
+                OpCode* ip = ptr;
+                OpCodeEnum code = ip->Code;
+                bool returned = false;
+                //挨个解析方法指令
+                while (!returned)//OpCodeEnum.Callvirt,OpCodeEnum.Ret,OpCodeEnum.Newobjo创建异常，执行异常跳出
+                {
+                    try
+                    {
+#if DEBUG && !DISABLE_ILRUNTIME_DEBUG
+                        if (ShouldBreak)
+                            Break();
+                        var insOffset = (int)(ip - ptr);
+                        frame.Address.Value = insOffset;
+                        AppDomain.DebugService.CheckShouldBreak(method, this, insOffset);
+#endif
+                        code = ip->Code;
+                        switch (code)
+                        {
+                            ....指令集...
+                        }
+                    }
+                }
+            }
+
+                   //平衡栈
+            return stack.PopFrame(ref frame, esp); 
+        }
+
+
+        /// <summary> 平衡栈 </summary>
+        public StackObject* PopFrame(ref StackFrame frame, StackObject* esp)
+        {
+            if (frames.Count > 0 && frames.Peek().BasePointer == frame.BasePointer)
+                frames.Pop();
+            else
+                throw new NotSupportedException();
+            StackObject* returnVal = esp - 1; //当前的栈顶，如果有返回值就是函数执行的返回值
+            var method = frame.Method;
+            StackObject* ret = ILIntepreter.Minus(frame.LocalVarPointer, method.ParameterCount);// 要返回的地址 平衡栈
+            int mStackBase = frame.ManagedStackBase;//托管栈的原始数量
+            if (method.HasThis) //是否持有本身对象压入栈
+                ret--;
+            if(method.ReturnType != intepreter.AppDomain.VoidType)
+            {
+                *ret = *returnVal; //将返回值放入平衡后的栈顶
+                if(ret->ObjectType == ObjectTypes.Object) //返回值是引用类型，将托管栈上的值归位
+                {
+                    ret->Value = mStackBase;
+                    managedStack[mStackBase] = managedStack[returnVal->Value];
+                    mStackBase++;
+                }
+                else if(ret->ObjectType == ObjectTypes.ValueTypeObjectReference) //值引用类型
+                {
+                    StackObject* oriAddr = frame.ValueTypeBasePointer;
+                    RelocateValueType(ret, ref frame.ValueTypeBasePointer, ref mStackBase);
+                    *(long*)&ret->Value = (long)oriAddr;
+                }
+                ret++;
+            }
+#if DEBUG && !DISABLE_ILRUNTIME_DEBUG
+            ((List<object>)managedStack).RemoveRange(mStackBase, managedStack.Count - mStackBase);
+#else
+            ((UncheckedList<object>)managedStack).RemoveRange(mStackBase, managedStack.Count - mStackBase); //平衡托管栈
+#endif
+            valueTypePtr = frame.ValueTypeBasePointer;
+            return ret;
+        }
+```
+
+函数指令执行：
+
+```C#
+```
+
+具体过程如下图所示
+
+```
+ILR托管栈 调用前:                                调用完成后:
+|---------------|                     |---------------|
+|     参数1     |     |-------------->|   [返回值]    |
+|---------------|     |               |---------------|
+|      ...      |     |               |     NULL      |
+|---------------|     |               |---------------|
+|     参数N     |     |               |      ...      |
+|---------------|     |
+|   局部变量1   |     |
+|---------------|     |
+|      ...      |     |
+|---------------|     |
+|   局部变量1   |     |
+|---------------|     |
+|  方法栈基址   |     |
+|---------------|     |
+|   [返回值]    |------
+|---------------|
+```
+
+函数调用进入目标方法体后，栈指针（后面我们简称为ESP）会被指向方法栈基址(就是当前栈顶)那个位置，可以通过ESP-X获取到该方法的参数和方法内部申明的局部变量，在方法执行完毕后，如果有返回值，则把返回值写在方法栈基址位置即可（上图因为空间原因写在了基址后面）。
+
+当方法体执行完毕后，ILRuntime会自动平衡托管栈，释放所有方法体占用的栈内存，然后把返回值复制到参数1的位置，这样后续代码直接取栈顶部就可以取到上次方法调用的返回值了。
+
+```
+1. Managed Object
+
+ ILR 托管栈                             CLR 托管栈
+|---------------|                     |---------------|
+|  StackObject  |                     |  ManagedStack |
+|---------------|                     |---------------|
+|  Type:Object  |                     |   Slot(idx)   |
+|---------------|        引用类型      |---------------|
+|  Value:Index  |-------------------->|    ObjRef     |
+|---------------|                     |---------------|
+
+2.CallFrame
+
+EnterFrame 函数执行时的栈帧:             LeaveFrame 执行结束后:
+|---------------|                     |---------------|
+|   Argument1   |     |-------------->|  [ReturnVal]  |
+|---------------|     |               |---------------|
+|      ...      |     |               |     NULL      |
+|---------------|     |               |---------------|
+|   ArgumentN   |     |               |      ...      |
+|---------------|     |
+|   LocalVar1   |     |
+|---------------|     |
+|      ...      |     |
+|---------------|     |
+|   LocalVarN   |     |
+|---------------|     |
+|   FrameBase   |     |
+|---------------|     |
+|  [ReturnVal]  |------
+|---------------|
+```
+
+3. ValueType
+Field1 - FieldN are Object Body, can be seperated from the Header, The ValueLow Field stores the pointer to Field1's StackObject
+```
+|---------------|                             |---------------|
+|StackObj:Field1|                             |  StackObject  |
+|---------------|                             |---------------|
+|     ...       |                     /----\  | Type:ValueType|
+|---------------|---------------------     -> |---------------|  
+|StackObj:FieldN|                     \----/  |Value:TypeToken|
+|---------------|                             |---------------|
+|StackObj:ValTyp|<----Pointer at Here         |Value2:FieldPtr|
+|---------------|                             |---------------|
+```
+
+<br>
+
+
+
+
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
+<h1 id="0011">1.1ILR的类型加载 </h3>
+
+ILR初始化加载程序集后，将dll中的类型，CLR中绑定的类型都显示注册存储起来。
+AppDomain 存储了所有的dll中的类型ILType，每个类型存储该函数所有的信息
+
+```C#
+ public class AppDomain
+    {
+        Queue<ILIntepreter> freeIntepreters = new Queue<ILIntepreter>();
+        Dictionary<int, ILIntepreter> intepreters = new Dictionary<int, ILIntepreter>();
+        Dictionary<Type, CrossBindingAdaptor> crossAdaptors = new Dictionary<Type, CrossBindingAdaptor>(new ByReferenceKeyComparer<Type>());
+        Dictionary<Type, ValueTypeBinder> valueTypeBinders = new Dictionary<Type, ValueTypeBinder>();
+        ThreadSafeDictionary<string, IType> mapType = new ThreadSafeDictionary<string, IType>();
+        Dictionary<Type, IType> clrTypeMapping = new Dictionary<Type, IType>(new ByReferenceKeyComparer<Type>());
+        ThreadSafeDictionary<int, IType> mapTypeToken = new ThreadSafeDictionary<int, IType>();
+        ThreadSafeDictionary<int, IMethod> mapMethod = new ThreadSafeDictionary<int, IMethod>();
+        ThreadSafeDictionary<long, string> mapString = new ThreadSafeDictionary<long, string>();
+        Dictionary<System.Reflection.MethodBase, CLRRedirectionDelegate> redirectMap = new Dictionary<System.Reflection.MethodBase, CLRRedirectionDelegate>();
+        Dictionary<System.Reflection.FieldInfo, CLRFieldGetterDelegate> fieldGetterMap = new Dictionary<System.Reflection.FieldInfo, CLRFieldGetterDelegate>();
+        Dictionary<System.Reflection.FieldInfo, CLRFieldSetterDelegate> fieldSetterMap = new Dictionary<System.Reflection.FieldInfo, CLRFieldSetterDelegate>();
+        Dictionary<Type, CLRMemberwiseCloneDelegate> memberwiseCloneMap = new Dictionary<Type, CLRMemberwiseCloneDelegate>(new ByReferenceKeyComparer<Type>());
+        Dictionary<Type, CLRCreateDefaultInstanceDelegate> createDefaultInstanceMap = new Dictionary<Type, CLRCreateDefaultInstanceDelegate>(new ByReferenceKeyComparer<Type>());
+        Dictionary<Type, CLRCreateArrayInstanceDelegate> createArrayInstanceMap = new Dictionary<Type, CLRCreateArrayInstanceDelegate>(new ByReferenceKeyComparer<Type>());
+        IType voidType, intType, longType, boolType, floatType, doubleType, objectType;
+        DelegateManager dMgr;
+        Assembly[] loadedAssemblies;
+        Dictionary<string, byte[]> references = new Dictionary<string, byte[]>();
+        DebugService debugService;
+
+```
+
+ILR 中的类型存储类型元数据
+
+```C#
+public class ILType : IType
+    {
+        Dictionary<string, List<ILMethod>> methods;
+        TypeReference typeRef;
+        TypeDefinition definition;
+        ILRuntime.Runtime.Enviorment.AppDomain appdomain;
+        ILMethod staticConstructor;
+        List<ILMethod> constructors;
+        IType[] fieldTypes;
+        FieldDefinition[] fieldDefinitions;
+        IType[] staticFieldTypes;
+        FieldDefinition[] staticFieldDefinitions;
+        Dictionary<string, int> fieldMapping;
+        Dictionary<string, int> staticFieldMapping;
+        ILTypeStaticInstance staticInstance;
+        Dictionary<int, int> fieldTokenMapping = new Dictionary<int, int>();
+        int fieldStartIdx = -1;
+        int totalFieldCnt = -1;
+        KeyValuePair<string, IType>[] genericArguments;
+        IType baseType, byRefType, enumType, elementType;
+        Dictionary<int, IType> arrayTypes;
+        Type arrayCLRType, byRefCLRType;
+        IType[] interfaces;
+        bool baseTypeInitialized = false;
+        bool interfaceInitialized = false;
+        List<ILType> genericInstances;
+        bool isDelegate;
+        ILRuntimeType reflectionType;
+        ILType genericDefinition;
+        IType firstCLRBaseType, firstCLRInterface;
+        int hashCode = -1;
+        static int instance_id = 0x10000000;
+        public TypeDefinition TypeDefinition { get { return definition; } }
+        bool mToStringGot, mEqualsGot, mGetHashCodeGot;
+        IMethod mToString, mEquals, mGetHashCode;
+
+         public IType BaseType
+        {
+            get
+            {
+                if (!baseTypeInitialized)
+                    InitializeBaseType();//初始化基类信息
+                return baseType;
+            }
+        }
+
+        public IType[] Implements
+        {
+            get
+            {
+                if (!interfaceInitialized)
+                    InitializeInterfaces(); //初始化多接口
+                return interfaces;
+            }
+        }
+    }
+```
+
+ILR 方法存储元数据对象
+
+```C#
+    public class ILMethod : IMethod
+    {
+        OpCode[] body; //初次调用进行op解析
+        MethodDefinition def;
+        List<IType> parameters;
+        ILRuntime.Runtime.Enviorment.AppDomain appdomain;
+        ILType declaringType;
+        ExceptionHandler[] exceptionHandler;
+        KeyValuePair<string, IType>[] genericParameters;
+        IType[] genericArguments;
+        Dictionary<int, int[]> jumptables;
+        bool isDelegateInvoke;
+        ILRuntimeMethodInfo refletionMethodInfo;
+        ILRuntimeConstructorInfo reflectionCtorInfo;
+        int paramCnt, localVarCnt; //代码中的本地变量的初始化包含在 厨师指令中
+        Mono.Collections.Generic.Collection<Mono.Cecil.Cil.VariableDefinition> variables;
+        int hashCode = -1;
+        static int instance_id = 0x10000000;
+    }
+```
+
+ILR中的实例对象：
+```C#
+    public class ILTypeInstance
+    {
+        protected ILType type;
+        protected StackObject[] fields;//属性信息
+        protected IList<object> managedObjs;//对应的引用类型
+        object clrInstance;
+        Dictionary<ILMethod, IDelegateAdapter> delegates;
+    }
+    unsafe class ILEnumTypeInstance : ILTypeInstance{}
+    public class ILTypeStaticInstance : ILTypeInstance{}
+```
+
+一、ILR 的类型导入。
+
+目前的理解CLRType：看该类型是不是dll中存在，不存在就将类型信息导入为CLRType 类型(AppDomain p.854) 。比如 System.Void，System.Int32 ，System.Int64，System.Boolean，System.Single，System.Double， System.Object，ILRuntime.Runtime.Adaptors.AttributeAdaptor+Adaptor等。 <br>
+除CLRType之外的类型就是ILR类型。<br>
+
+跨域继承的绑定对象一定是CLRType.
+<br>
+
+```C#
+     一 AppDomain、  public void RegisterCrossBindingAdaptor(CrossBindingAdaptor adaptor)
+        {
+            var bType = adaptor.BaseCLRType;
+
+            if (bType != null)
+            {
+                if (!crossAdaptors.ContainsKey(bType))
+                {
+                    var t = adaptor.AdaptorType;
+                    var res = GetType(t);
+                    if (res == null)
+                    {
+                        res = new CLRType(t, this); //注册跨域绑定的时候，跨域的继承的对象一定是CLR类型
+                        mapType[res.FullName] = res;
+                        mapType[t.AssemblyQualifiedName] = res;
+                        clrTypeMapping[t] = res;
+                    }
+                    adaptor.RuntimeType = res;
+                    crossAdaptors[bType] = adaptor;
+                }
+                else
+                    throw new Exception("Crossbinding Adapter for " + bType.FullName + " is already added.");
+            }
+            else
+            {
+                 // 需要做跨域绑定对象的类型，dll中检测到这个类型去获取实际类型做替换。
+                 // 作用就是生成对象的时候unity层通过这个对象进行生成。
+                 // unity对继承这个类的dll层的调用也是通过这个适配器的类进行调用
+                 // 
+                var bTypes = adaptor.BaseCLRTypes; // 需要做跨域绑定对象的类型，dll中检测到这个类型去获取实际类型做替换
+                var t = adaptor.AdaptorType; //用来 作为跨域绑定的 实际类型
+                var res = GetType(t);
+                if (res == null)
+                {
+                    res = new CLRType(t, this); //t创建跨域类型 。 在实际创建类型对象的时候 通过提供的类型信息寻找绑定信息去通过绑定对象创建实例
+                    mapType[res.FullName] = res;
+                    mapType[t.AssemblyQualifiedName] = res;
+                    clrTypeMapping[t] = res;
+                }
+                adaptor.RuntimeType = res;
+
+                foreach (var i in bTypes)//注册到跨域绑定
+                {
+                    if (!crossAdaptors.ContainsKey(i))
+                    {
+                        crossAdaptors[i] = adaptor;
+                    }
+                    else
+                        throw new Exception("Crossbinding Adapter for " + i.FullName + " is already added.");
+                }
+            }
+        }
+
+     二、   AppDomain.
+     public IType GetType(string fullname)
+        {
+            IType res;
+            if (fullname == null)
+            {
+                return null;
+            }
+
+            if (mapType.TryGetValue(fullname, out res))
+                return res;
+
+            string baseType;
+            List<string> genericParams;
+            bool isArray;
+
+            ParseGenericType(fullname, out baseType, out genericParams, out isArray);
+
+            bool isByRef = baseType.EndsWith("&");
+            if (isByRef)
+                baseType = baseType.Substring(0, baseType.Length - 1);
+            if (genericParams != null || isArray || isByRef) //数组引用或者泛型。数组引用
+            {
+                IType bt = GetType(baseType);
+                if (bt == null)
+                {
+                    bt = GetType(baseType.Replace("/", "+"));
+                }
+
+                if (bt == null)
+                    return null;
+                if (genericParams != null)
+                {
+                    KeyValuePair<string, IType>[] genericArguments = new KeyValuePair<string, IType>[genericParams.Count];
+                    for (int i = 0; i < genericArguments.Length; i++)
+                    {
+                        string key = "!" + i;
+                        IType val = GetType(genericParams[i]);
+                        if (val == null)
+                            return null;
+                        genericArguments[i] = new KeyValuePair<string, IType>(key, val);
+                    }
+                    bt = bt.MakeGenericInstance(genericArguments); ///CIL类型创建的CLRType
+                    mapType[bt.FullName] = bt;
+                    mapTypeToken[bt.GetHashCode()] = bt;
+                    if (bt is CLRType)
+                    {
+                        clrTypeMapping[bt.TypeForCLR] = bt;
+
+                        //It still make sense for CLRType, since CLR uses [T] for generics instead of <T>
+                        StringBuilder sb = new StringBuilder();
+                        sb.Append(baseType);
+                        sb.Append('<');
+                        for (int i = 0; i < genericParams.Count; i++)
+                        {
+                            if (i > 0)
+                                sb.Append(",");
+                            /*if (genericParams[i].Contains(","))
+                                sb.Append(genericParams[i].Substring(0, genericParams[i].IndexOf(',')));
+                            else*/
+                                sb.Append(genericParams[i]);
+                        }
+                        sb.Append('>');
+                        var asmName = sb.ToString();
+                        if (bt.FullName != asmName)
+                            mapType[asmName] = bt;
+                    }
+                }
+
+                if (isArray)
+                {
+                    bt = bt.MakeArrayType(1);///CIL类型创建的CLRType
+                    if (bt is CLRType)
+                        clrTypeMapping[bt.TypeForCLR] = bt;
+                    mapType[bt.FullName] = bt;
+                    mapTypeToken[bt.GetHashCode()] = bt;
+                    if (!isByRef)
+                    {
+                        mapType[fullname] = bt;
+                        return bt;
+                    }
+                }
+
+                if (isByRef)
+                {
+                    res = bt.MakeByRefType();///CIL类型创建的CLRType
+                    if (bt is CLRType)
+                        clrTypeMapping[bt.TypeForCLR] = bt;
+                    mapType[fullname] = res;
+                    mapType[res.FullName] = res;
+                    mapTypeToken[res.GetHashCode()] = res;
+                    return res;
+                }
+                else
+                {
+                    mapType[fullname] = bt;
+                    return bt;
+                }
+            }
+            else  //基础基元类型 System.Void，System.Int32 ，System.Int64，System.Boolean，System.Single，System.Double， System.Object
+            {
+                Type t = Type.GetType(fullname);
+                if (t != null)
+                {
+                    if (!clrTypeMapping.TryGetValue(t, out res))
+                    {
+                        res = new CLRType(t, this);
+                        clrTypeMapping[t] = res;
+                    }
+                    mapType[fullname] = res;
+                    mapType[res.FullName] = res;
+                    mapType[t.AssemblyQualifiedName] = res;
+                    mapTypeToken[res.GetHashCode()] = res;
+                    return res;
+                }
+            }
+            return null;
+        }
+    三、ILType：
+    {
+
+        IType MakeGenericInstance(KeyValuePair<string, IType>[] genericArguments);
+
+        IType MakeByRefType();
+
+        IType MakeArrayType(int rank);
+    }
+```
+
+ILType：所有dll中直接定义的类型全是。<br>
+
+二、 ILR的类型加载器 的加载类型信息(只是类型信息，不是类实例)<br>
+
+
+* ILType.InitializeBaseType()  
+
+    * IL类型父类是 CIR 类型的 类型加载
+    * IL类型父类是 IL 类型的 类型加载
+```C#
+else//先只关注非泛型正常实现
+                {
+                    baseType = appdomain.GetType(definition.BaseType, this, null);
+                    /*
+                    */
+
+                    //1、对于跨域继承的类型加载。 首先假设进入ilr，第一个构建的是GetWayConfig
+                    //他继承IMessage，是CLRType,ILR中只能寻找CrossBindingAdaptor对应的类型作为填充
+                    if (baseType is CLRType) 
+                    {
+                        if (baseType.TypeForCLR == typeof(Enum) || baseType.TypeForCLR == typeof(object) || baseType.TypeForCLR == typeof(ValueType) || baseType.TypeForCLR == typeof(System.Enum))
+                        {//都是这样，无所谓
+                            baseType = null;
+                        }
+                        else if (baseType.TypeForCLR == typeof(MulticastDelegate))
+                        {
+                            baseType = null;
+                            isDelegate = true;
+                        }
+                        else
+                        {
+                            CrossBindingAdaptor adaptor;
+                            if (appdomain.CrossBindingAdaptors.TryGetValue(baseType.TypeForCLR, out adaptor))
+                            {
+                                baseType = adaptor;
+                            }
+                            else
+                                throw new TypeLoadException("Cannot find Adaptor for:" + baseType.TypeForCLR.ToString());
+                            //继承了其他系统类型
+                            //env.logger.Log_Error("ScriptType:" + Name + " Based On a SystemType:" + BaseType.Name);
+                            //HasSysBase = true;
+                            //throw new Exception("不得继承系统类型，脚本类型系统和脚本类型系统是隔离的");
+                        }
+                    }
+                }
+            var curBase = baseType;
+            while (curBase is ILType) //如果是IL类型直接将基础类型给上
+            {
+                curBase = curBase.BaseType;
+            }
+            firstCLRBaseType = curBase;
+            baseTypeInitialized = true;
+
+//接口的实现类型初始化
+void InitializeInterfaces()
+        {
+            interfaceInitialized = true;
+            if (definition != null && definition.HasInterfaces)
+            {
+                interfaces = new IType[definition.Interfaces.Count];
+                for (int i = 0; i < interfaces.Length; i++)
+                {
+                    interfaces[i] = appdomain.GetType(definition.Interfaces[i].InterfaceType, this, null);//获取当前已经加载的类型信息
+                    //only one clrInterface is valid
+                    if (interfaces[i] is CLRType && firstCLRInterface == null) 
+                    {
+                        CrossBindingAdaptor adaptor;
+                        if (appdomain.CrossBindingAdaptors.TryGetValue(interfaces[i].TypeForCLR, out adaptor))
+                        {
+                            interfaces[i] = adaptor;
+                            firstCLRInterface = adaptor;
+                        }
+                        else
+                            throw new TypeLoadException("Cannot find Adaptor for:" + interfaces[i].TypeForCLR.ToString());
+                    }
+                }
+            }
+            if (firstCLRInterface == null && BaseType != null && BaseType is ILType)//是dll本身的类型 有所有的类型信息直接将实现类型填充
+                firstCLRInterface = ((ILType)BaseType).FirstCLRInterface;
+        }
+
+```
+
+* CRLType 类型的类型加载器.
+
+```C#
+ void InitializeBaseType()
+        {
+            baseType = appdomain.GetType(clrType.BaseType);//Type直接获取
+            if (baseType.TypeForCLR == typeof(Enum) || baseType.TypeForCLR == typeof(object) || baseType.TypeForCLR == typeof(ValueType) || baseType.TypeForCLR == typeof(System.Enum))
+            {//都是这样，无所谓
+                baseType = null;
+            }
+            isBaseTypeInitialized = true;
+        }
+
+        void InitializeInterfaces()
+        {
+            interfaceInitialized = true;
+            var arr = clrType.GetInterfaces();//Type直接获取
+            if (arr.Length >0)
+            {
+                interfaces = new IType[arr.Length];
+                for (int i = 0; i < interfaces.Length; i++)
+                {
+                    interfaces[i] = appdomain.GetType(arr[i]);
+                }
+            }
+        }
+```
+
+
+
+
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
+<h1 id="0012">1.2ILR的类型实例创建 </h3>
+三、 ILR进类型对象的创建：
+在进行创建前，类型信息已经加载完成存储到AppDomain中了，如果解释器需要创建新的类型，分两种类型进行创建 ：
+
+    * ILR中的类型，则直接创建的实例对象都是ILTypeInstance 类型。
+    * 如果该类型是CLR类型。需要让CLR进行创建ConstructorInfo.Invoke(param)。。 如果构造函数注册了构造的函数的重定向，则直接通过直接调用构建。
+
+CLRType中的方法
+
+```C#
+                             case OpCodeEnum.Newobj:
+                                {
+                                    IMethod m = domain.GetMethod(ip->TokenInteger);
+                                    
+                                    if (m is ILMethod)//创建ilr的实例类型。
+                                    {
+                                        type = m.DeclearingType as ILType;
+                                        if (type.IsDelegate) //创建委托类型
+                                        {
+                                            objRef = GetObjectAndResolveReference(esp - 1 - 1);
+                                            var mi = (IMethod)mStack[(esp - 1)->Value];
+                                            object ins;
+                                            if (objRef->ObjectType == ObjectTypes.Null)
+                                                ins = null;
+                                            else
+                                                ins = mStack[objRef->Value]; //给委托类型提供一个地址
+                                            Free(esp - 1);
+                                            Free(esp - 1 - 1);
+                                            esp = esp - 1 - 1;
+                                            object dele;
+                                            if (mi is ILMethod)
+                                            {
+                                                if (ins != null)
+                                                {
+                                                    dele = ((ILTypeInstance)ins).GetDelegateAdapter((ILMethod)mi);//ilr内都使用委托适配器
+                                                    if (dele == null)
+                                                        dele = domain.DelegateManager.FindDelegateAdapter((ILTypeInstance)ins, (ILMethod)mi);
+                                                }
+                                                else
+                                                {
+                                                    if (((ILMethod)mi).DelegateAdapter == null)
+                                                    {
+                                                        ((ILMethod)mi).DelegateAdapter = domain.DelegateManager.FindDelegateAdapter(null, (ILMethod)mi);
+                                                    }
+                                                    dele = ((ILMethod)mi).DelegateAdapter;
+                                                }
+                                            }
+
+                                            else
+                                            {
+                                                throw new NotImplementedException();
+                                            }
+                                            esp = PushObject(esp, mStack, dele);
+                                        }
+                                        else//非委托类型
+                                        {
+                                            a = esp - m.ParameterCount;
+                                            obj = null;
+                                            bool isValueType = type.IsValueType;
+                                            if (isValueType) //值类型
+                                            {
+                                                stack.AllocValueType(esp, type); //直接在栈上分配
+                                                objRef = esp + 1;
+                                                objRef->ObjectType = ObjectTypes.StackObjectReference;
+                                                *(long*)&objRef->Value = (long)esp; 
+                                                objRef++;
+                                            }
+                                            else //非值类型直接创建ILTypeInstance 实例
+                                            {
+                                                obj = ((ILType)type).Instantiate(false);//创建ILTypeInstance实例类型
+                                                objRef = PushObject(esp, mStack, obj);//this parameter for constructor
+                                            }
+                                            esp = objRef;
+                                            for (int i = 0; i < m.ParameterCount; i++)
+                                            {
+                                                CopyToStack(esp, a + i, mStack);
+                                                esp++;
+                                            }
+                                            esp = Execute((ILMethod)m, esp, out unhandledException);//再执行构造函数，构造函数可能创建ILR类型 也可能创建CLR类型
+                                            ValueTypeBasePointer = bp;
+                                            if (isValueType)
+                                            {
+                                                var ins = objRef - 1 - 1;
+                                                *a = *ins;
+                                                esp = a + 1;
+                                            }
+                                            else
+                                                esp = PushObject(a, mStack, obj);//new constructedObj
+                                        }
+                                        if (unhandledException)
+                                            returned = true;
+                                    }
+                                    else// CLR类型
+                                    {
+                                        CLRMethod cm = (CLRMethod)m;
+                                        //Means new object();
+                                        if (cm == null)
+                                        {
+                                            esp = PushObject(esp, mStack, new object());
+                                        }
+                                        else
+                                        {
+                                            if (cm.DeclearingType.IsDelegate)//委托类型，
+                                            {
+                                                objRef = GetObjectAndResolveReference(esp - 1 - 1);
+                                                var mi = (IMethod)mStack[(esp - 1)->Value];
+                                                object ins;
+                                                if (objRef->ObjectType == ObjectTypes.Null)
+                                                    ins = null;
+                                                else
+                                                    ins = mStack[objRef->Value];
+                                                Free(esp - 1); //？？？？？？？？
+                                                Free(esp - 1 - 1);
+                                                esp = esp - 1 - 1;
+                                                object dele;
+                                                if (mi is ILMethod)//委托类型，需要构建对应的委托实例类型，专门由 DelegateManager管理所有委托类型，
+                                                {
+                                                    if (ins != null)
+                                                    {
+                                                        dele = ((ILTypeInstance)ins).GetDelegateAdapter((ILMethod)mi);//跨域的重定向
+                                                        if (dele == null)
+                                                            dele = domain.DelegateManager.FindDelegateAdapter((ILTypeInstance)ins, (ILMethod)mi);
+                                                    }
+                                                    else
+                                                    {
+                                                        if (((ILMethod)mi).DelegateAdapter == null)
+                                                        {
+                                                            ((ILMethod)mi).DelegateAdapter = domain.DelegateManager.FindDelegateAdapter(null, (ILMethod)mi);
+                                                        }
+                                                        dele = ((ILMethod)mi).DelegateAdapter;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if (ins is ILTypeInstance)
+                                                        ins = ((ILTypeInstance)ins).CLRInstance;
+                                                    dele = Delegate.CreateDelegate(cm.DeclearingType.TypeForCLR, ins, ((CLRMethod)mi).MethodInfo);
+                                                }
+                                                esp = PushObject(esp, mStack, dele);
+                                            }
+                                            else //非委托类型
+                                            {
+                                                var redirect = cm.Redirection; //如果有重定向，通过重定向进行实例调用创建
+                                                if (redirect != null)
+                                                    esp = redirect(this, esp, mStack, cm, true);
+                                                else
+                                                {
+                                                    object result = cm.Invoke(this, esp, mStack, true); //没有重定向通过反射调用创建对象
+                                                    int paramCount = cm.ParameterCount;
+                                                    for (int i = 1; i <= paramCount; i++)
+                                                    {
+                                                        Free(esp - i);
+                                                    }
+                                                    esp = Minus(esp, paramCount);//创建完对象将对象返回到参数1的栈顶
+                                                    esp = PushObject(esp, mStack, result);//new constructedObj
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
+```
+
+
+```C#
+
+        static StackObject* Ctor_0(ILIntepreter __intp, StackObject* __esp, IList<object> __mStack, CLRMethod __method, bool isNewObj)
+        {
+            ILRuntime.Runtime.Enviorment.AppDomain __domain = __intp.AppDomain;
+            StackObject* ptr_of_this_method;
+            StackObject* __ret = ILIntepreter.Minus(__esp, 1);//返回地址
+            ptr_of_this_method = ILIntepreter.Minus(__esp, 1);//当前函数调用参数
+            //解析持有者实例类型对象，ilr中是消息体 ，例如 ErrorMsg:IMessage 。这里假如构建的是ErrorMsg时候创建的MessageParser 今天变量，则ptr_of_this_method当前栈解析出来的就是MessageParser类型，也就是IMessage 接口类型。 
+
+            System.Func<global::Adapt_IMessage.Adaptor> @factory = (System.Func<global::Adapt_IMessage.Adaptor>)typeof(System.Func<global::Adapt_IMessage.Adaptor>).CheckCLRTypes(StackObject.ToObject(ptr_of_this_method, __domain, __mStack));
+            __intp.Free(ptr_of_this_method);
+
+            //这时候创建了一个MessageParser类型对象，他持有的泛型消息体结构是 ILTypeInstance ，拥有 clrInstance 实例的对象 是ErrorMsg， 已经创建了构造函数的委托重定向，这里创建出来的对象是new Google.Protobuf.MessageParser<global::Adapt_IMessage.Adaptor> 对象是因为 当前要创建的CLR的类型结构是 加载的时候做了 重定向的判断，IMessage的类型都用定向后的global::Adapt_IMessage.Adaptor 类型替换保存在 SystemMessage，
+
+            var result_of_this_method = new Google.Protobuf.MessageParser<global::Adapt_IMessage.Adaptor>(@factory);
+            //静态变量中 解释器存储的类型是 MessageParser<global::Adapt_IMessage.Adaptor> //构建的时候发现是CLR类型则寻找IMessage对应得适配器类型
+            return ILIntepreter.PushObject(__ret, __mStack, result_of_this_method);
+        }
+```
+
+ILR中如何创建跨域对象：
+```C#
+public ILTypeInstance(ILType type, bool initializeCLRInstance = true)
+        {
+            this.type = type;
+            fields = new StackObject[type.TotalFieldCount];
+            managedObjs = new List<object>(fields.Length);
+            for (int i = 0; i < fields.Length; i++)
+            {
+                managedObjs.Add(null);
+            }
+            InitializeFields(type);
+            if (initializeCLRInstance)
+            {
+                if (type.FirstCLRBaseType is Enviorment.CrossBindingAdaptor)
+                {
+                    clrInstance = ((Enviorment.CrossBindingAdaptor)type.FirstCLRBaseType).CreateCLRInstance(type.AppDomain, this);
+                }
+                else
+                {
+                    clrInstance = this;
+                }
+                if(type.FirstCLRInterface is Enviorment.CrossBindingAdaptor)
+                {
+                    if (clrInstance != this)//Only one CLRInstance is allowed atm, so implementing multiple interfaces is not supported
+                    {
+                        throw new NotSupportedException("Inheriting and implementing interface at the same time is not supported yet");
+                    }
+                    clrInstance = ((Enviorment.CrossBindingAdaptor)type.FirstCLRInterface).CreateCLRInstance(type.AppDomain, this); //跨域继承的话，就是在这里处理
+                }
+            }
+            else
+                clrInstance = this;
+        }
+```
+
+
+例如：创建一个DialogConfigChunk对象。
+DialogConfigChunk 是ILR对象创建的是ITypeInstance实例。
+Parser 字段是CLR对象 ，创建
+
+```C#
+public sealed class DialogConfigChunk : pb::IMessage {
+  private static readonly pb::MessageParser<DialogConfigChunk> _parser = new pb::MessageParser<DialogConfigChunk>(() => new DialogConfigChunk());
+  public static pb::MessageParser<DialogConfigChunk> Parser { get { return _parser; } }
+
+  private static readonly pb::FieldCodec<global::DialogConfig> _repeated_items_codec
+      = pb::FieldCodec.ForMessage(10, global::DialogConfig.Parser);
+  private readonly pbc::RepeatedField<global::DialogConfig> items_ = new pbc::RepeatedField<global::DialogConfig>();
+  public pbc::RepeatedField<global::DialogConfig> Items {
+    get { return items_; }
+  }
+
+  public void WriteTo(pb::CodedOutputStream output) {
+    items_.WriteTo(output, _repeated_items_codec);
+  }
+
+  public int CalculateSize() {
+    int size = 0;
+    size += items_.CalculateSize(_repeated_items_codec);
+    return size;
+  }
+
+  public void MergeFrom(pb::CodedInputStream input) {
+    uint tag;
+    while ((tag = input.ReadTag()) != 0) {
+      switch(tag) {
+        default:
+          input.SkipLastField();
+          break;
+        case 10: {
+          items_.AddEntriesFrom(input, _repeated_items_codec);
+          break;
+        }
+      }
+    }
+  }
+}
+```
+
+对于一个GetWayConfig：
+
+firstCLRBaseType： //IType
+firstCLRInterface：//Adapt_IMessage CLR类型 
+
+<br>
+![](Media/GetWayConfigIns.png)
+![](Media/GetWayConfigIns_1.png)
+
+
+
+
+
+
+
+
+
+
+
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
+<h1 id="0013">1.13 ILR的类型函数调用 </h3>
+
+
+```C#
+        public static void ParseTableData()
+        {
+            var asset = DResources.AllocBin("TableData/DialogConfig");
+            DialogConfigChunk result = null;
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            using (MemoryStream m = new MemoryStream(asset))
+            {
+                /*
+                   这时候已经创建好DialogConfigChunk对象ILTypeInstance
+                   Parser 静态对象 ， 然后调用 ParseFrom 是跨域调用
+                 */
+                result = DialogConfigChunk.Parser.ParseFrom(m);
+            }
+
+            stopwatch.Stop();
+            BLogger.Info("解析DialogConfig ms：{0} , allItemsNum:{1}", stopwatch.ElapsedMilliseconds, result.Items.Count);
+        }
+
+
+.method public hidebysig static void  ParseTableData() cil managed
+{
+  // 代码大小       119 (0x77)
+  .maxstack  5
+  .locals init (uint8[] V_0, //先进行局部变量的构建
+           class [GameProto]DialogConfigChunk V_1,
+           class [netstandard]System.Diagnostics.Stopwatch V_2,
+           class [netstandard]System.IO.MemoryStream V_3)
+  IL_0000:  nop
+  IL_0001:  ldstr      "TableData/DialogConfig" // 推送对元数据中存储的字符串的新对象引用。
+  IL_0006:  call       uint8[] [GameBase]GameBase.DResources::AllocBin(string)
+  IL_000b:  stloc.0     //从计算堆栈的顶部弹出当前值并将其存储到指定索引处的局部变量列表中。 V_0
+  IL_000c:  ldnull      //将空引用（O 类型）推送到计算堆栈上。
+  IL_000d:  stloc.1     //栈的顶部弹出当前值存储到指定索引处的局部变量 V_1
+  IL_000e:  newobj     instance void [netstandard]System.Diagnostics.Stopwatch::.ctor()//创建CLR对象
+  IL_0013:  stloc.2     //栈的顶部弹出当前值存储到指定索引处的局部变量 V_2
+  IL_0014:  ldloc.2     //将指定索引处的局部变量加载到计算堆栈上,V_2
+  IL_0015:  callvirt   instance void [netstandard]System.Diagnostics.Stopwatch::Start()
+  IL_001a:  nop
+  IL_001b:  ldloc.0     //将指定索引处的局部变量加载到计算堆栈上,V_0 ,
+  IL_001c:  newobj     instance void [netstandard]System.IO.MemoryStream::.ctor(uint8[])//创建使用当前栈顶的参数创建然后放到栈顶
+  IL_0021:  stloc.3    //栈的顶部弹出当前值存储到指定索引处的局部变量 V_3 ，将栈顶数据保存到v——3，网络数据流
+  .try
+  {
+    IL_0022:  nop
+    IL_0023:  call       class [GameNative]Google.Protobuf.MessageParser`1<class [GameProto]DialogConfigChunk> [GameProto]DialogConfigChunk::get_Parser() //将当前实例加载到栈上
+    IL_0028:  ldloc.3     //将指定索引处的局部变量加载到计算堆栈上,也就是网络数据流 ,
+    IL_0029:  callvirt   instance !0 class [GameNative]Google.Protobuf.MessageParser`1<class [GameProto]DialogConfigChunk>::ParseFrom(class [netstandard]System.IO.Stream) //调用方法，需要用到两个一个是网络数据，一个是调用实例
+    IL_002e:  stloc.1 //V_1　解析出来的对象存储到局部变量
+    IL_002f:  nop
+    IL_0030:  leave.s    IL_003d
+  }  // end .try
+  finally
+  {
+    IL_0032:  ldloc.3
+    IL_0033:  brfalse.s  IL_003c
+    IL_0035:  ldloc.3
+    IL_0036:  callvirt   instance void [netstandard]System.IDisposable::Dispose()
+    IL_003b:  nop
+    IL_003c:  endfinally
+  }  // end handler
+  IL_003d:  ldloc.2
+  IL_003e:  callvirt   instance void [netstandard]System.Diagnostics.Stopwatch::Stop()
+  IL_0043:  nop
+  IL_0044:  ldstr      bytearray (E3 89 90 67 44 00 69 00 61 00 6C 00 6F 00 67 00   // ...gD.i.a.l.o.g.
+                                  43 00 6F 00 6E 00 66 00 69 00 67 00 20 00 6D 00   // C.o.n.f.i.g. .m.
+                                  73 00 1A FF 7B 00 30 00 7D 00 20 00 2C 00 20 00   // s...{.0.}. .,. .
+                                  61 00 6C 00 6C 00 49 00 74 00 65 00 6D 00 73 00   // a.l.l.I.t.e.m.s.
+                                  4E 00 75 00 6D 00 3A 00 7B 00 31 00 7D 00 )       // N.u.m.:.{.1.}.
+  IL_0049:  ldc.i4.2
+  IL_004a:  newarr     [netstandard]System.Object
+  IL_004f:  dup
+  IL_0050:  ldc.i4.0
+  IL_0051:  ldloc.2
+  IL_0052:  callvirt   instance int64 [netstandard]System.Diagnostics.Stopwatch::get_ElapsedMilliseconds()
+  IL_0057:  box        [netstandard]System.Int64
+  IL_005c:  stelem.ref
+  IL_005d:  dup
+  IL_005e:  ldc.i4.1
+  IL_005f:  ldloc.1
+  IL_0060:  callvirt   instance class [GameNative]Google.Protobuf.Collections.RepeatedField`1<class [GameProto]DialogConfig> [GameProto]DialogConfigChunk::get_Items()
+  IL_0065:  callvirt   instance int32 class [GameNative]Google.Protobuf.Collections.RepeatedField`1<class [GameProto]DialogConfig>::get_Count()
+  IL_006a:  box        [netstandard]System.Int32
+  IL_006f:  stelem.ref
+  IL_0070:  call       void [BBProtoBase]BGame.BLogger::Info(string,
+                                                             object[])
+  IL_0075:  nop
+  IL_0076:  ret
+} // end of method TableData::ParseTableData
+
+        //当前调用，栈帧上调用跨域方法，通过绑定调用， 每个函数的绑定调用都不一样，ilr提供了自动生成工具
+        static StackObject* ParseFrom_0(ILIntepreter __intp, StackObject* __esp, IList<object> __mStack, CLRMethod __method, bool isNewObj)
+        {
+            ILRuntime.Runtime.Enviorment.AppDomain __domain = __intp.AppDomain;
+            StackObject* ptr_of_this_method;
+            StackObject* __ret = ILIntepreter.Minus(__esp, 2);//这个是Parse对象
+
+            ptr_of_this_method = ILIntepreter.Minus(__esp, 1);//esp上一个对象就是数据参数
+            //现在将实例对象拿出来 转换成实际对象
+            System.IO.Stream @input = (System.IO.Stream)typeof(System.IO.Stream).CheckCLRTypes(StackObject.ToObject(ptr_of_this_method, __domain, __mStack));
+            __intp.Free(ptr_of_this_method); // 已经从ilr栈中获取到参数，可以清除栈了
+
+            ptr_of_this_method = ILIntepreter.Minus(__esp, 2);//然后获得Parse对象实例
+            Google.Protobuf.MessageParser<global::Adapt_IMessage.Adaptor> instance_of_this_method = (Google.Protobuf.MessageParser<global::Adapt_IMessage.Adaptor>)typeof(Google.Protobuf.MessageParser<global::Adapt_IMessage.Adaptor>).CheckCLRTypes(StackObject.ToObject(ptr_of_this_method, __domain, __mStack));
+            __intp.Free(ptr_of_this_method);//然后清除对象
+
+            var result_of_this_method = instance_of_this_method.ParseFrom(@input);//进行当前指令的实际调用
+
+            object obj_result_of_this_method = result_of_this_method;
+            if(obj_result_of_this_method is CrossBindingAdaptorType)//将得到的数据
+            {    
+                return ILIntepreter.PushObject(__ret, __mStack, ((CrossBindingAdaptorType)obj_result_of_this_method).ILInstance);
+            }
+            return ILIntepreter.PushObject(__ret, __mStack, result_of_this_method);
+        }
+
+
+```
+
+
 
 
 
@@ -85,6 +1539,7 @@ app.DelegateManager.RegisterDelegateConvertor<SomeFunction>((action) =>
 为了避免不必要的麻烦，以及后期热更出现问题，建议项目遵循以下几点：
 * 尽量避免不必要的跨域委托调用
 * 尽量使用Action以及Func这两个系统内置万用委托类型
+* 出保前运行自动分析绑定，
 
 
 
@@ -115,7 +1570,6 @@ app.DelegateManager.RegisterDelegateConvertor<SomeFunction>((action) =>
 	    public abstract void TestAbstract();
 		public virtual void TestVirtual(ClassInheritanceTest a)
 		{
-		    
 		}
 	}
 
@@ -245,9 +1699,6 @@ app.DelegateManager.RegisterDelegateConvertor<SomeFunction>((action) =>
 
 
 
-
-
-
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
 <h1 id="004">4、ILR中的反射 </h3>
 
@@ -255,6 +1706,7 @@ app.DelegateManager.RegisterDelegateConvertor<SomeFunction>((action) =>
 通过反射获取Type。
 
 ***
+
 在**热更DLL**当中，直接调用Type.GetType("TypeName")或者typeof(TypeName)均可以得到有效System.Type类型实例。
 
 ```C#
@@ -372,7 +1824,107 @@ object[] attributeArr = fi.GetCustomAttributes(typeof(SomeAttribute), false);
 
 ILRuntime为了解决这类问题，引入了CLR重定向机制。 原理就是当IL解译器发现需要调用某个指定CLR方法时，将实际调用重定向到另外一个方法进行挟持，再在这个方法中对ILRuntime的反射的用法进行处理
 
-刚刚提到的Activator.CreateInstance<T>的CLR重定向定义如下：
+```C#
+ public unsafe AppDomain()
+        {
+            AllowUnboundCLRMethod = true;
+            InvocationContext.InitializeDefaultConverters();
+            loadedAssemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+            var mi = typeof(System.Runtime.CompilerServices.RuntimeHelpers).GetMethod("InitializeArray");
+            RegisterCLRMethodRedirection(mi, CLRRedirections.InitializeArray);
+            foreach (var i in typeof(System.Activator).GetMethods())
+            {
+                if (i.Name == "CreateInstance" && i.IsGenericMethodDefinition)
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.CreateInstance);
+                }
+                else if (i.Name == "CreateInstance" && i.GetParameters().Length == 1)
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.CreateInstance2);
+                }
+                else if (i.Name == "CreateInstance" && i.GetParameters().Length == 2)
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.CreateInstance3);
+                }
+            }
+            foreach (var i in typeof(System.Type).GetMethods())
+            {
+                if (i.Name == "GetType" && i.IsStatic)
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.GetType);
+                }
+                if (i.Name == "Equals" && i.GetParameters()[0].ParameterType == typeof(Type))
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.TypeEquals);
+                }
+            }
+            foreach (var i in typeof(System.Delegate).GetMethods())
+            {
+                if (i.Name == "Combine" && i.GetParameters().Length == 2)
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.DelegateCombine);
+                }
+                if (i.Name == "Remove")
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.DelegateRemove);
+                }
+                if (i.Name == "op_Equality")
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.DelegateEqulity);
+                }
+                if (i.Name == "op_Inequality")
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.DelegateInequlity);
+                }
+            }
+            foreach (var i in typeof(MethodBase).GetMethods())
+            {
+                if (i.Name == "Invoke" && i.GetParameters().Length == 2)
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.MethodInfoInvoke);
+                }
+            }
+            foreach (var i in typeof(Enum).GetMethods())
+            {
+                if (i.Name == "Parse" && i.GetParameters().Length == 2)
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.EnumParse);
+                }
+                if (i.Name == "GetValues" && i.GetParameters().Length == 1)
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.EnumGetValues);
+                }
+                if (i.Name == "GetNames" && i.GetParameters().Length == 1)
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.EnumGetNames);
+                }
+                if(i.Name == "GetName")
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.EnumGetName);
+                }
+                if (i.Name == "ToObject" && i.GetParameters()[1].ParameterType == typeof(int))
+                {
+                    RegisterCLRMethodRedirection(i, CLRRedirections.EnumToObject);
+                }
+            }
+            mi = typeof(System.Type).GetMethod("GetTypeFromHandle");
+            RegisterCLRMethodRedirection(mi, CLRRedirections.GetTypeFromHandle);
+            mi = typeof(object).GetMethod("GetType");
+            RegisterCLRMethodRedirection(mi, CLRRedirections.ObjectGetType);
+            dMgr = new DelegateManager(this);
+            dMgr.RegisterDelegateConvertor<Action>((dele) =>
+            {
+                return dele;
+            });
+
+            RegisterCrossBindingAdaptor(new Adaptors.AttributeAdaptor());
+
+            debugService = new Debugger.DebugService(this);
+        }
+```
+
+
+刚刚提到的Activator.CreateInstance<T>的CLR重定向定义如下,DLL中发现CreateInstance方法调用，发现是热更类型代码使用ilr的方法创建，如果是系统方法使用系统自带方法：
 ```C#
         public static StackObject* CreateInstance(ILIntepreter intp, StackObject* esp, List<object> mStack, CLRMethod method, bool isNewObj)
         {
@@ -435,10 +1987,95 @@ ILRuntime为了解决这类问题，引入了CLR重定向机制。 原理就是�
         }
 ```
 
+```C#
+unsafe class GameBase_UIViewMono_Binding
+    {
+        public static void Register(ILRuntime.Runtime.Enviorment.AppDomain app)
+        {
+            MethodBase method;
+            Type[] args;
+            Type type = typeof(GameBase.UIViewMono);
+            Dictionary<string, List<MethodInfo>> genericMethods = new Dictionary<string, List<MethodInfo>>();
+            List<MethodInfo> lst = null;                    
+            foreach(var m in type.GetMethods())
+            {
+                if(m.IsGenericMethodDefinition)
+                {
+                    if (!genericMethods.TryGetValue(m.Name, out lst))
+                    {
+                        lst = new List<MethodInfo>();
+                        genericMethods[m.Name] = lst;
+                    }
+                    lst.Add(m);
+                }
+            }
+            args = new Type[]{typeof(UnityEngine.UI.InputField)};
+            if (genericMethods.TryGetValue("GetValueByKey", out lst))
+            {
+                foreach(var m in lst)
+                {
+                    if(m.MatchGenericParameters(args, typeof(UnityEngine.UI.InputField), typeof(System.String)))
+                    {
+                        method = m.MakeGenericMethod(args);
+                        app.RegisterCLRMethodRedirection(method, GetValueByKey_0);
+
+                        break;
+                    }
+                }
+            }
+
+        }
+
+        static StackObject* GetValueByKey_0(ILIntepreter __intp, StackObject* __esp, IList<object> __mStack, CLRMethod __method, bool isNewObj)
+        {
+            ILRuntime.Runtime.Enviorment.AppDomain __domain = __intp.AppDomain;
+            StackObject* ptr_of_this_method;
+            StackObject* __ret = ILIntepreter.Minus(__esp, 2);
+
+            ptr_of_this_method = ILIntepreter.Minus(__esp, 1);
+            System.String @key = (System.String)typeof(System.String).CheckCLRTypes(StackObject.ToObject(ptr_of_this_method, __domain, __mStack));
+            __intp.Free(ptr_of_this_method);
+
+            ptr_of_this_method = ILIntepreter.Minus(__esp, 2);
+            GameBase.UIViewMono instance_of_this_method = (GameBase.UIViewMono)typeof(GameBase.UIViewMono).CheckCLRTypes(StackObject.ToObject(ptr_of_this_method, __domain, __mStack));
+            __intp.Free(ptr_of_this_method);
+
+            var result_of_this_method = instance_of_this_method.GetValueByKey<UnityEngine.UI.InputField>(@key);
+
+            object obj_result_of_this_method = result_of_this_method;
+            if(obj_result_of_this_method is CrossBindingAdaptorType)
+            {    
+                return ILIntepreter.PushObject(__ret, __mStack, ((CrossBindingAdaptorType)obj_result_of_this_method).ILInstance);
+            }
+            return ILIntepreter.PushObject(__ret, __mStack, result_of_this_method);
+        }
+    }
+```
+
 然后在通过下面的代码注册重定向即可：
 ```C#
 appdomain.RegisterCLRMethodRedirection(typeof(Debug).GetMethod("Log"), DLog);
 ```
+
+备注：
+* CLR：公共语言运行库（Common Language Runtime,CLR）
+* .net托管代码运行环境,语言编译器编译 元数据描述代码中的类型，成员，和引用。元数据和代码一起存储，每个可加载的公共语言运行库可移植执行(PE)文件都包含元数据。
+<br>
+* CLR使用元数据：查找和加载类，在内存中安排实例，解析方法调用，生成本机代码，强制安全性，以及设置运行时上下文边界。
+<br>
+* 主要功能有：<br>
+类加载器(管理元数据，加载和在内存中布局类)<br>
+Micorsoft 中间语言（MSIL）到本地代码编译器：通过即时编译把Micorsoft 中间语言转换为本地代码<br>
+代码管理器：管理和执行代码<br>
+垃圾回收器：为NET.Framework下的所有对象提供自动生命期管理，支持多处理器，可扩展<br>
+安全引擎：提供基于证据的安全，基于用户身份和代码来源<br>
+调试器：使开发者能够调试应用程序和根据代码执行<br>
+类型检查器：不允许不安全的类型转换和未初始化变量MSIL可被校验以保证类型安全。<br>
+异常管理器：提供和Windows结构化异常处理集成的异常处理机制；<br>
+线程支持：提供多线程编程支持；<br>
+COM封送拆收器：提供和COM组件之间的封送转换；<br>
+.NET Framwork类库支持：通过和运行时集成代码来支持.NET Framwork类库。 <br>
+
 
 
 
@@ -486,6 +2123,133 @@ static void GenerateCLRBinding()
 }
 ```
 
+
+CLR绑定字段：
+```C#
+ unsafe class UILogicBase_Binding
+    {
+        public static void Register(ILRuntime.Runtime.Enviorment.AppDomain app)
+        {
+            BindingFlags flag = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+            FieldInfo field;
+            Type[] args;
+            Type type = typeof(global::UILogicBase);
+
+            field = type.GetField("UIMono", flag);
+            app.RegisterCLRFieldGetter(field, get_UIMono_0);
+            app.RegisterCLRFieldSetter(field, set_UIMono_0);
+
+
+        }
+
+        static object get_UIMono_0(ref object o)
+        {
+            return ((global::UILogicBase)o).UIMono;
+        }
+        static void set_UIMono_0(ref object o, object v)
+        {
+            ((global::UILogicBase)o).UIMono = (GameBase.UIViewMono)v;
+        }
+    }
+```
+
+
+CLR绑定静态方法：
+```C#
+ unsafe class UnityEngine_Time_Binding
+    {
+        public static void Register(ILRuntime.Runtime.Enviorment.AppDomain app)
+        {
+            BindingFlags flag = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+            MethodBase method;
+            Type[] args;
+            Type type = typeof(UnityEngine.Time);
+            args = new Type[]{};
+            method = type.GetMethod("get_time", flag, null, args, null);
+            app.RegisterCLRMethodRedirection(method, get_time_0);
+        }
+
+        static StackObject* get_time_0(ILIntepreter __intp, StackObject* __esp, IList<object> __mStack, CLRMethod __method, bool isNewObj)
+        {
+            ILRuntime.Runtime.Enviorment.AppDomain __domain = __intp.AppDomain;
+            StackObject* __ret = ILIntepreter.Minus(__esp, 0);
+
+
+            var result_of_this_method = UnityEngine.Time.time;
+
+            __ret->ObjectType = ObjectTypes.Float;
+            *(float*)&__ret->Value = result_of_this_method;
+            return __ret + 1;
+        }
+    }
+```
+
+调用对象实例方法：
+
+```C#
+ unsafe class GameBase_UIViewMono_Binding
+    {
+        public static void Register(ILRuntime.Runtime.Enviorment.AppDomain app)
+        {
+            MethodBase method;
+            Type[] args;
+            Type type = typeof(GameBase.UIViewMono);
+            Dictionary<string, List<MethodInfo>> genericMethods = new Dictionary<string, List<MethodInfo>>();
+            List<MethodInfo> lst = null;                    
+            foreach(var m in type.GetMethods())
+            {
+                if(m.IsGenericMethodDefinition)
+                {
+                    if (!genericMethods.TryGetValue(m.Name, out lst))
+                    {
+                        lst = new List<MethodInfo>();
+                        genericMethods[m.Name] = lst;
+                    }
+                    lst.Add(m);
+                }
+            }
+            args = new Type[]{typeof(UnityEngine.UI.InputField)};
+            if (genericMethods.TryGetValue("GetValueByKey", out lst))
+            {
+                foreach(var m in lst)
+                {
+                    if(m.MatchGenericParameters(args, typeof(UnityEngine.UI.InputField), typeof(System.String)))
+                    {
+                        method = m.MakeGenericMethod(args);
+                        app.RegisterCLRMethodRedirection(method, GetValueByKey_0);
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        static StackObject* GetValueByKey_0(ILIntepreter __intp, StackObject* __esp, IList<object> __mStack, CLRMethod __method, bool isNewObj)
+        {
+            ILRuntime.Runtime.Enviorment.AppDomain __domain = __intp.AppDomain;
+            StackObject* ptr_of_this_method;
+            StackObject* __ret = ILIntepreter.Minus(__esp, 2);
+
+            ptr_of_this_method = ILIntepreter.Minus(__esp, 1);
+            System.String @key = (System.String)typeof(System.String).CheckCLRTypes(StackObject.ToObject(ptr_of_this_method, __domain, __mStack));
+            __intp.Free(ptr_of_this_method);
+
+            ptr_of_this_method = ILIntepreter.Minus(__esp, 2);
+            GameBase.UIViewMono instance_of_this_method = (GameBase.UIViewMono)typeof(GameBase.UIViewMono).CheckCLRTypes(StackObject.ToObject(ptr_of_this_method, __domain, __mStack));
+            __intp.Free(ptr_of_this_method);
+
+            var result_of_this_method = instance_of_this_method.GetValueByKey<UnityEngine.UI.InputField>(@key);
+
+            object obj_result_of_this_method = result_of_this_method;
+            if(obj_result_of_this_method is CrossBindingAdaptorType)
+            {    
+                return ILIntepreter.PushObject(__ret, __mStack, ((CrossBindingAdaptorType)obj_result_of_this_method).ILInstance);
+            }
+            return ILIntepreter.PushObject(__ret, __mStack, result_of_this_method);
+        }
+    }
+```
+
 在CLR绑定代码生成之后，需要将这些绑定代码注册到AppDomain中才能使CLR绑定生效，但是一定要记得将CLR绑定的注册写在CLR重定向的注册后面，因为同一个方法只能被重定向一次，只有先注册的那个才能生效。
 
 注册方法如下：
@@ -506,120 +2270,6 @@ ILRuntime.Runtime.Generated.CLRBindings.Initialize(appdomain);
 
 
 
-
-
-
-
-<br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
-<h1 id="007">7、ILR实现原理 </h3>
-
-ILRuntime借助Mono.Cecil库来读取DLL的PE信息，以及当中类型的所有信息，最终得到方法的IL汇编码，然后通过内置的IL解译执行虚拟机来执行DLL中的代码。
-
-IL托管栈和托管对象栈
-
-***
-
-为了高性能进行运算，尤其是栈上的基础类型运算，如int,float,long之类类型的运算，直接借助C#的Stack类实现IL托管栈肯定是个非常糟糕的做法。因为这意味着每次读取和写入这些基础类型的值，都需要将他们进行装箱和拆箱操作，这个过程会非常耗时并且会产生巨量的GC Alloc，使得整个运行时执行效率非常低下。
-
-因此ILRuntime使用unsafe代码以及非托管内存，实现了自己的IL托管栈。
-
-ILRuntime中的所有对象都是以StackObject类来表示的，他的定义如下：
-```C#
-    struct StackObject
-    {
-        public ObjectTypes ObjectType;
-        public int Value; //高32位
-        public int ValueLow; //低32位
-    }
-    enum ObjectTypes
-    {
-        Null,//null
-        Integer,
-        Long,
-        Float,
-        Double,
-        StackObjectReference,//引用指针，Value = 指针地址, 
-        StaticFieldReference,//静态变量引用,Value = 类型Hash， ValueLow= Field的Index
-        Object,//托管对象，Value = 对象Index
-        FieldReference,//类成员变量引用，Value = 对象Index, ValueLow = Field的Index
-        ArrayReference,//数组引用，Value = 对象Index, ValueLow = 元素的Index
-    }
-```
-通过StackObject这个值类型，我们可以表达C#当中所有的基础类型，因为所有基础类型都可以表达为8位到64位的integer。对于非基础类型而言，我们额外需要一个List来储存他的object引用对象，而Value则可以存储这个对象在List中的Index。由此我们就可以表达C#中所有的类型了。
-
-托管调用栈
------------------------------
-ILRuntime在进行方法调用时，需要将方法的参数先压入托管栈，然后执行完毕后需要将栈还原，并把方法返回值压入栈。
-
-具体过程如下图所示
-
-```
-调用前:                                调用完成后:
-|---------------|                     |---------------|
-|     参数1     |     |-------------->|   [返回值]    |
-|---------------|     |               |---------------|
-|      ...      |     |               |     NULL      |
-|---------------|     |               |---------------|
-|     参数N     |     |               |      ...      |
-|---------------|     |
-|   局部变量1   |     |
-|---------------|     |
-|      ...      |     |
-|---------------|     |
-|   局部变量1   |     |
-|---------------|     |
-|  方法栈基址   |     |
-|---------------|     |
-|   [返回值]    |------
-|---------------|
-```
-函数调用进入目标方法体后，栈指针（后面我们简称为ESP）会被指向方法栈基址那个位置，可以通过ESP-X获取到该方法的参数和方法内部申明的局部变量，在方法执行完毕后，如果有返回值，则把返回值写在方法栈基址位置即可（上图因为空间原因写在了基址后面）。
-
-当方法体执行完毕后，ILRuntime会自动平衡托管栈，释放所有方法体占用的栈内存，然后把返回值复制到参数1的位置，这样后续代码直接取栈顶部就可以取到上次方法调用的返回值了。
-
-1. Managed Object
-
-|---------------|                     |---------------|
-|  StackObject  |                     |  ManagedStack |
-|---------------|                     |---------------|
-|  Type:Object  |                     |   Slot(idx)   |
-|---------------|                     |---------------|
-|  Value:Index  |-------------------->|    ObjRef     |
-|---------------|                     |---------------|
-
-2.CallFrame
-
-EnterFrame:                            LeaveFrame:
-|---------------|                     |---------------|
-|   Argument1   |     |-------------->|  [ReturnVal]  |
-|---------------|     |               |---------------|
-|      ...      |     |               |     NULL      |
-|---------------|     |               |---------------|
-|   ArgumentN   |     |               |      ...      |
-|---------------|     |
-|   LocalVar1   |     |
-|---------------|     |
-|      ...      |     |
-|---------------|     |
-|   LocalVarN   |     |
-|---------------|     |
-|   FrameBase   |     |
-|---------------|     |
-|  [ReturnVal]  |------
-|---------------|
-
-
-3. ValueType
-Field1 - FieldN are Object Body, can be seperated from the Header, The ValueLow Field stores the pointer to Field1's StackObject
-|---------------|                             |---------------|
-|StackObj:Field1|                             |  StackObject  |
-|---------------|                             |---------------|
-|     ...       |                     /----\  | Type:ValueType|
-|---------------|---------------------     -> |---------------|  
-|StackObj:FieldN|                     \----/  |Value:TypeToken|
-|---------------|                             |---------------|
-|StackObj:ValTyp|<----Pointer at Here         |Value2:FieldPtr|
-|---------------|                             |---------------|
 
 
 
