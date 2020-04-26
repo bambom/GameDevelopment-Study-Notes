@@ -1,9 +1,10 @@
 
 * [前置](#000)
 * [ILR基于栈的解释器实现原理](#001)
-* [ILR的类型加载](#0011)
-* [ILR的类型实例创建](#0012)
-* [ILR的类型函数调用](#0013)
+* [ILR的PE文件解析](#0011)
+* [ILR的类型加载](#0012)
+* [ILR的类型实例创建](#0013)
+* [ILR的类型函数调用](#0014)
 * [ILR使用委托](#002)
 * [ILR跨域继承](#003)
 * [ILR中的反射](#004)
@@ -110,7 +111,6 @@ class Program
 }
 
 /*********************************************************************/
-
 .method public hidebysig static void  Main(string[] args) cil managed
 {
   .entrypoint
@@ -623,9 +623,14 @@ Field1 - FieldN are Object Body, can be seperated from the Header, The ValueLow 
 
 
 
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
+<h1 id="0011">1.0  ILR的PE文件解析</h3>
+
+
+
 
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
-<h1 id="0011">1.1ILR的类型加载 </h3>
+<h1 id="0012">1.1ILR的类型加载 </h3>
 
 ILR初始化加载程序集后，将dll中的类型，CLR中绑定的类型都显示注册存储起来。
 AppDomain 存储了所有的dll中的类型ILType，每个类型存储该函数所有的信息
@@ -1061,7 +1066,7 @@ void InitializeInterfaces()
 
 
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
-<h1 id="0012">1.2ILR的类型实例创建 </h3>
+<h1 id="0013">1.2ILR的类型实例创建 </h3>
 三、 ILR进类型对象的创建：
 在进行创建前，类型信息已经加载完成存储到AppDomain中了，如果解释器需要创建新的类型，分两种类型进行创建 ：
 
@@ -1227,6 +1232,8 @@ CLRType中的方法
 
 ```C#
 
+  /*
+  */
         static StackObject* Ctor_0(ILIntepreter __intp, StackObject* __esp, IList<object> __mStack, CLRMethod __method, bool isNewObj)
         {
             ILRuntime.Runtime.Enviorment.AppDomain __domain = __intp.AppDomain;
@@ -1346,7 +1353,7 @@ firstCLRInterface：//Adapt_IMessage CLR类型
 
 
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
-<h1 id="0013">1.13 ILR的类型函数调用 </h3>
+<h1 id="0014">1.14 ILR的类型函数调用 </h3>
 
 
 ```C#
@@ -1534,6 +1541,119 @@ app.DelegateManager.RegisterDelegateConvertor<SomeFunction>((action) =>
     });
 });
 ```
+
+CLR中，定义一个委托类型，会生成一个新的委托类，class中声明的委托，类中会创建该类型对应的字段，类创建实例的时候，会将该委托实例类型也创建。 ILR中没有注册委托适配器和转换器，默认创建的是DummyDelegateAdapter，他和正常clr委托类差不多，右对应实例的对象和指向的方法。 不进行跨域 他已经够用了。 如果是要讲该类型注册到unity。
+需要将方法 变成clr真正的委托对象。这个委托适配器就要有吧相应的解释器执行 委托到unity的委托的功能。 所以需要适配器。 同时，由于适配器都是基于action 和 func 所以如果unity定义的是自定义的，还需要一个转换器进行转换。
+
+如果是将unity的方法委托给ilr，那就是正常的 对unity的跨域调用了。给委托赋值的过程，就是创建新的委托，将函数指针作为参数放入够早函数。
+
+ILR内部的委托实例：
+内部的委托实例都是创建的 DelegateAdapter类型，对于不同的委托类型，ilr主要实现了一下几种
+
+为什么ilr内部转换成unity外部的委托需要指定类型注册呢：
+在执行指令的时候，会把内部的委托实例，比如FunctionDelegateAdapter类型的委托，传给CLR的真正委托实例，在赋值之前，就是一个正常的栈帧操作，需要先创建对应的系统委托实例。 由于实例是MethodDelegateAdapter 或者 FunctionDelegateAdapter 的泛型对象，AOT没有办法动态生成新的类型所以每个要传到unity里的新的委托类型都要在游戏里显示注册下，保存下类型信息。 然后解释器执行的时候都是用过这两种实例进行操作。给unitydelate 赋值就是将他的解释器执行函数委托出去。 
+
+unity的委托对象是一个 action<int> ，ilr内部有一个函数是void Get(int a) 类型，ilr内部需要创建一个MethodDelegateAdapter<int> 类型对象，如果不显示注册，
+AOT下无法创建这个对象的。MethodDelegateAdapter<int>这个类型对象在unity中不存在，也就无法进行实现。
+
+什么是类型转换：
+dll中不管是自定义的还是action 或 func都是MethodDelegateAdapter或者FunctionDelegateAdapter实例对象。这两个内部是action 和func。 
+如果是指定到外部的自定义类型，那要显示转换，将action或者func 转换为自定义delegate的过程。 
+
+如果只是热更内部使用的话 那委托类型实例都是创建的DummyDelegateAdapter类型，只需要进行委托指定的方法调用就行了，参数直接在栈帧压入，不需要创建新的类型信息。传到外面因为要构建新的委托实例，因此要进行适配器和转换器。
+
+
+```C#
+case OpCodeEnum.Stsfld:用来自计算堆栈的值替换静态字段的值。
+                                {
+                                    type = AppDomain.GetType((int)(ip->TokenLong >> 32));
+                                    if (type != null)
+                                    {
+                                        if (type is ILType)
+                                        {
+                                            ILType t = type as ILType;
+                                            val = esp - 1;
+                                            t.StaticInstance.AssignFromStack((int)ip->TokenLong, val, AppDomain, mStack);
+                                        }
+                                        else
+                                        {
+                                            CLRType t = type as CLRType;
+                                            int idx = (int)ip->TokenLong;
+                                            var f = t.GetField(idx);
+                                            val = esp - 1;
+                                            t.SetStaticFieldValue(idx, f.FieldType.CheckCLRTypes(CheckAndCloneValueType(StackObject.ToObject(val, domain, mStack), domain)));
+                                        }
+                                    }
+                                    else
+                                        throw new TypeLoadException();
+                                    Free(esp - 1);
+                                    esp -= 1;
+                                }
+
+
+FunctionDelegateAdapter<TResult>: DelegateAdapter
+......
+FunctionDelegateAdapter<T1, T2, T3, T4, TResult>: DelegateAdapter
+
+
+MethodDelegateAdapter<T1> : DelegateAdapter
+......
+MethodDelegateAdapter<T1, T2, T3, T4> : DelegateAdapter
+
+DummyDelegateAdapter
+
+解释器里面对委托的调用
+
+        public unsafe StackObject* ILInvoke(ILIntepreter intp, StackObject* esp, IList<object> mStack)
+        {
+            var ebp = esp;
+            esp = ILInvokeSub(intp, esp, mStack);
+            return ClearStack(intp, esp, ebp, mStack);
+        }
+
+        unsafe StackObject* ILInvokeSub(ILIntepreter intp, StackObject* esp, IList<object> mStack)
+        {
+            var ebp = esp;
+            bool unhandled;
+            if (method.HasThis)
+                esp = ILIntepreter.PushObject(esp, mStack, instance);
+            int paramCnt = method.ParameterCount;
+            for(int i = paramCnt; i > 0; i--)
+            {
+                intp.CopyToStack(esp, Minus(ebp, i), mStack); //将参数进行复制到运行栈，然后执行函数
+                esp++;
+            }
+            var ret = intp.Execute(method, esp, out unhandled);
+            if (next != null)
+            {
+                if (method.ReturnType != appdomain.VoidType)
+                {
+                    intp.Free(ret - 1);//Return value for multicast delegate doesn't make sense, only return the last one's value
+                }
+                DelegateAdapter n = (DelegateAdapter)next;
+                ret = n.ILInvokeSub(intp, ebp, mStack);
+
+            }
+            return ret;
+        }
+
+        //供跨域调用
+        void InvokeILMethod(T1 p1, T2 p2, T3 p3, T4 p4)
+        {
+            using (var c = appdomain.BeginInvoke(method))
+            {
+                var ctx = c;
+                if (method.HasThis)
+                    ctx.PushObject(instance);
+                PushParameter(ref ctx, pTypes[0], p1);
+                PushParameter(ref ctx, pTypes[1], p2);
+                PushParameter(ref ctx, pTypes[2], p3);
+                PushParameter(ref ctx, pTypes[3], p4);
+                ctx.Invoke();
+            }
+        }
+```
+
 建议
 =========
 为了避免不必要的麻烦，以及后期热更出现问题，建议项目遵循以下几点：
@@ -1581,6 +1701,8 @@ app.DelegateManager.RegisterDelegateConvertor<SomeFunction>((action) =>
             get
             {
 			    //如果你是想一个类实现多个Unity主工程的接口，这里需要return null;
+
+                //他的作用是ILR进行类型加载的时候通过看是不是继承了这个类，如果是继承了这个类型那么AdaptorType 适配类型作为实现的实际类型。
                 return typeof(ClassInheritanceTest);//这是你想继承的那个类
             }
         }
@@ -1702,12 +1824,16 @@ app.DelegateManager.RegisterDelegateConvertor<SomeFunction>((action) =>
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br>[返回目录](#000)
 <h1 id="004">4、ILR中的反射 </h3>
 
- 在脚本中使用反射其实是一个非常困难的事情。因为这需要把ILRuntime中的类型转换成一个真实的C#运行时类型，并把它们映射起来。<br>默认情况下，System.Reflection命名空间中的方法，并不可能得知ILRuntime中定义的类型，因此无法通过Type.GetType等接口取得热更DLL里面的类型。而且ILRuntime里的类型也并不是一个System.Type。<br>为了解决这个问题，ILRuntime额外实现了几个用于反射的辅助类：ILRuntimeType，ILRuntimeMethodInfo，ILRuntimeFieldInfo等，来模拟系统的类型来提供部分反射功能
+ 在脚本中使用反射其实是一个非常困难的事情。因为这需要把ILRuntime中的类型转换成一个真实的C#运行时类型，并把它们映射起来。<br>默认情况下，System.Reflection命名空间中的方法，并不可能得知ILRuntime中定义的类型，因此无法通过Type.GetType等接口取得热更DLL里面的类型。而且ILRuntime里的类型也并不是一个System.Type。<br>为了解决这个问题，ILRuntime额外实现了几个用于反射的辅助类：ILRuntimeType，ILRuntimeMethodInfo，ILRuntimeFieldInfo等，来模拟系统的类型来提供部分反射功能，这些类型主要用在unity中获取这些反射的实例的时候，获取的热更得类型的实例就是这几个实例，里面重写了反射的接口，对函数调用的时候调用ilr的解释器。至于一个ilr运行时中创建的类型实例，他的Type 是系统的Type还是继承Type的ILruntimeType,在类型加载的时候就已经确定创建了。
+
+
 通过反射获取Type。
+ 
 
 ***
 
 在**热更DLL**当中，直接调用Type.GetType("TypeName")或者typeof(TypeName)均可以得到有效System.Type类型实例。
+原理是： ILR对Type的几个反射借口做了重定向，获取GetType或者Activator这些接口进行了定制。
 
 ```C#
 
@@ -1721,7 +1847,7 @@ Type t2 = Type.GetType("TypeName");
 
 ```C#
 IType type = appdomain.LoadedTypes["TypeName"];
-Type t = type.ReflectedType;
+Type t = type.ReflectedType; //
 ```
 
 ***
@@ -1966,6 +2092,7 @@ ILRuntime为了解决这类问题，引入了CLR重定向机制。 原理就是�
 ```C#
         public unsafe static StackObject* DLog(ILIntepreter __intp, StackObject* __esp, List<object> __mStack, CLRMethod __method, bool isNewObj)
         {
+            //stdcall调用，参数从右向左压入堆栈
             ILRuntime.Runtime.Enviorment.AppDomain __domain = __intp.AppDomain;
             StackObject* ptr_of_this_method;
 			//只有一个参数，所以返回指针就是当前栈指针ESP - 1
@@ -2314,7 +2441,9 @@ Unity提供了一个方式来告诉Unity引擎，哪些类型是不能够被剪�
 ---------
 每个泛型实例实际上都是一个独立的类型，`List<A>` 和 `List<B>`是两个完全没有关系的类型，这意味着，如果在运行时无法通过JIT来创建新类型的话，代码中没有直接使用过的泛型实例都会在运行时出现问题。
 
-在ILRuntime中解决这个问题有两种方式，一个是使用CLR绑定，把用到的泛型实例都进行CLR绑定。另外一个方式是在Unity主工程中，建立一个类，然后在里面定义用到的那些泛型实例的public变量。这两种方式都可以告诉IL2CPP保留这个类型的代码供运行中使用。
+在ILRuntime中解决这个问题有两种方式，一个是使用CLR绑定，把用到的泛型实例都进行CLR绑定。另外一个方式是在Unity主工程中，建立一个类，然后在里面定义用到的那些泛型实例的public变量。这两种方式都可以告诉IL2CPP保留这个类型的代码供运行中使用。典型的例子协议的适配器类型，MessageParser<T> ，具体的实际类型是热梗的dll代码，创建一个具体的协议类型的时候需要创建MessageParser<IMessage.Adapter> ，如果没有显示包含这个类型，想要反射创建运行时是会报错的，因为没有这个类型的信息。
+
+反正要是dll中使用unity的类型，主要还是防止类型裁剪把只有dll中引用的泛型类型给裁剪掉了。
 
 因此建议大家在实际开发中，尽量使用热更DLL内部的类作为泛型参数，因为DLL内部的类型都是ILTypeInstance，只需处理一个就行了。此外如果泛型模版类就是在DLL里定义的的话，那就完全不需要进行任何处理。
 
