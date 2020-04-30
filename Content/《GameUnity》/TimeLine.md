@@ -42,7 +42,7 @@ SpatialBlend: 空间混合
 属性分三大部分：Clip Timing 控制音频在Timeline 中的位置和时间，速度等。s秒表示f帧所在的时间。BlendCurves:表示开始结束的淡入淡出曲线。 AudioPlayableAsset:控制音量和是否循环。
 
 
-Control Track:
+Control Track: 用来控制多个timeline在时间轴上的表现
 Signal Track:
 Playable Track:
 Ciemachine Track:
