@@ -55,16 +55,16 @@ Sub Track： 一般叫覆盖轨道(Override Tracks),用于覆盖或者遮蔽原�
 
 Unity Recorder:
 
-这个是Unity的插件：允许直接在UnityEditor上进行aniClip，Videos，和图片的clip录制。
- RecordMode: 
- Manual： 手动点击开始录制结束录制
- Single Frame: 基于设置的帧率，按单帧录制。 例如2秒的工程，要录制地24帧，
- Frame Interval: 指定起始帧结束帧 录制
- Time Interval: 制定开始时间结束时间开始录制。
- cap： 只有 播放帧率是固定值时，才可以使用Cap。Cap开启时， 工程运行的帧率受限于你设置的目标帧率。 关闭时，允许你的工程录制的更快比正常时间，没有录制回放速度的影响。 这可以在不依赖于用户实时输入的情景下节约时间。例如游戏预告片的用户交互和工程教程的回放录像。或者是视频动态图片或者录制教标题录像等等。
+    这个是Unity的插件：允许直接在UnityEditor上进行aniClip，Videos，和图片的clip录制。
+    RecordMode: 
+    Manual： 手动点击开始录制结束录制
+    Single Frame: 基于设置的帧率，按单帧录制。 例如2秒的工程，要录制地24帧，
+    Frame Interval: 指定起始帧结束帧 录制
+    Time Interval: 制定开始时间结束时间开始录制。
+     cap： 只有 播放帧率是固定值时，才可以使用Cap。Cap开启时， 工程运行的帧率受限于你设置的目标帧率。 关闭时，允许你的工程录制的更快比正常时间，没有录制回放速度的影响。 这可以在不依赖于用户实时输入的情景下节约时间。例如游戏预告片的用户交互和工程教程的回放录像。或者是视频动态图片或者录制教标题录像等等。
 
- 可以录制4种类型的东西：GIF Animation , Animation Clip ,Movie ,Image Sequence . 每种类型的配置可以导出，导入，多个工程通用。
+     可以录制4种类型的东西：GIF Animation , Animation Clip ,Movie ,Image Sequence . 每种类型的配置可以导出，导入，多个工程通用。
 
-Animation Clip：会记录录制的位置动作，位移，融合成一个单独的anim。
-Movie：
-Image Sequence：
+    Animation Clip：会记录录制的位置动作，位移，融合成一个单独的anim。
+    Movie：
+    Image Sequence：

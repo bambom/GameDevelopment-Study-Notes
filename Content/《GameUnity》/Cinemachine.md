@@ -25,19 +25,19 @@
 * [返回](#000)
 <h1 id = "001">1、Cinemachine Brain</h2>
 
-Cinemachine Brain： 所有相机组件的重要组件，控制主相机，同时允许用创建和控制许多不同的虚拟相机。
+<font color=Coral face="加粗">Cinemachine Brain</font>： 所有相机组件的重要组件，控制主相机，同时允许用创建和控制许多不同的虚拟相机。
 
-    * Live Camera：当前激活的虚拟相机。
-    * Show Debug Text: 显示当前是哪个虚拟相机控制的主相机。 这里在多个相机切换时候，会以最后一个激活的相机作为当前主控制相机。
-    * Show Camera Frustum:显示相机裁剪范围。
-    * Ignore Time Scale: 忽略timescale的影响，不受unity加减速的影响。
-    * World Up Override： 默认空相机使用世界Y作为构建视图矩阵的up向量。拖拽物体并旋转下，就会使用当前这个物体的Y方向作为构建up的向量。
-    * Update Method: 更新相机位置和旋转的时机。 如果由于更新地方导致的不流畅可以在这里进行选择更新时机。
-    * Default Blend：默认的相机融合时的国度曲线和持续时间。
-    * Custom Blends: 如果选择了自定义的融合，就会覆盖默认的。自定义的可以定义多个相机的间的融合关系。
-    * Events：
-      Camera cut：任何虚拟相机要进入控制并且没有融合的时候切入到这个相机前，出发该事件。
-      Camera Actived：相机激活的时候出发，cut或融合的方式都在第一帧触发该事件。
+   * <font color=Coral face="加粗">Live Camera</font>：当前激活的虚拟相机。
+   * <font color=Coral face="加粗">Show Debug Text</font>: 显示当前是哪个虚拟相机控制的主相机。 这里在多个相机切换时候，会以最后一个激活的相机作为当前主控制相机。
+   * <font color=Coral face="加粗">Show Camera Frustum</font>:显示相机裁剪范围。
+   * <font color=Coral face="加粗">Ignore Time Scale</font>: 忽略timescale的影响，不受unity加减速的影响。
+   * <font color=Coral face="加粗">World Up Override</font>： 默认空相机使用世界Y作为构建视图矩阵的up向量。拖拽物体并旋转下，就会使用当前这个物体的Y方向作为构建up的向量。
+   * <font color=Coral face="加粗">Update Method</font>: 更新相机位置和旋转的时机。 如果由于更新地方导致的不流畅可以在这里进行选择更新时机。
+   * <font color=Coral face="加粗">Default Blend </font>：默认的相机融合时的国度曲线和持续时间。
+   * <font color=Coral face="加粗"> Custom Blends</font>: 如果选择了自定义的融合，就会覆盖默认的。自定义的可以定义多个相机的间的融合关系。
+   * <font color=Coral face="加粗"> Events：</font>
+      <font color=Coral face="加粗"> Camera cut</font>：任何虚拟相机要进入控制并且没有融合的时候切入到这个相机前，出发该事件。
+      <font color=Coral face="加粗"> Camera Actived</font>：相机激活的时候出发，cut或融合的方式都在第一帧触发该事件。
 
 ![](MediaTimeline/CinemachineMenue.jpg)
 
@@ -47,46 +47,46 @@ Cinemachine Brain： 所有相机组件的重要组件，控制主相机，同�
 
 * [返回](#000)
 <h1 id ="002">2、 Cinimachine Virtual Camera </h2>
-CinimachineVirtualCamera: 是使用时间轴创建相机行为和镜头的关键。 
+<font color=Coral face="加粗"> CinimachineVirtualCamera</font>: 是使用时间轴创建相机行为和镜头的关键。 
 
-    Status: Live 当前相机处于显示状态。 Solo 关注当前相机直接显示在Game窗口。用于相机的调试。
+   <font color=Coral face="加粗"> Status</font>: Live 当前相机处于显示状态。 Solo 关注当前相机直接显示在Game窗口。用于相机的调试。
 
-    Game Window Guides：勾选时，Game窗口会显示辅助线，用于设置虚拟相机的各个属性。
+<font color=Coral face="加粗"> Game Window Guides</font> ：勾选时，Game窗口会显示辅助线，用于设置虚拟相机的各个属性。
         仅在以下任意一属性赋值时显示辅助线：
-            * Look At 属性设置了物体，Aim设置为Composer或Group Composer
-            * Follow 属性设置了物体，Body设置为Framing Composer
+            * <font color=Coral face="加粗"> Look At</font> 属性设置了物体，Aim设置为Composer或Group Composer
+            * <font color=Coral face="加粗"> Follow</font> 属性设置了物体，Body设置为Framing Composer
 
-    Save During Play：虚拟相机的属性在运行时的修改可以被保存下来，退出Play状态时不会被重置。它是通过Cinemachine命名空间中的一个特殊的属性[SaveDuringPlay]。如果你自己的脚本也需要运行时保存的功能，只需要在类上加上这个属性即可。如果不想要类中的某些成员在运行时保存，可以给这些成员加上[NoSaveDuringPlay]属性。
+   <font color=Coral face="加粗"> Save During Play</font>：虚拟相机的属性在运行时的修改可以被保存下来，退出Play状态时不会被重置。它是通过Cinemachine命名空间中的一个特殊的属性[SaveDuringPlay]。如果你自己的脚本也需要运行时保存的功能，只需要在类上加上这个属性即可。如果不想要类中的某些成员在运行时保存，可以给这些成员加上[NoSaveDuringPlay]属性。
 ![](MediaTimeline/SaveDuringPlay.png)
 
-    Priority：虚拟相机的优先级，用于Live镜头的选择。数值越高代表优先级越高。Cinemachine Brain会根据这个属性从所有激活的虚拟相机中选择活动的虚拟相机。在Timeline上使用时这个属性不生效。
+   <font color=Coral face="加粗"> Priority</font>：虚拟相机的优先级，用于Live镜头的选择。数值越高代表优先级越高。Cinemachine Brain会根据这个属性从所有激活的虚拟相机中选择活动的虚拟相机。在Timeline上使用时这个属性不生效。
 
-    Follow： 相机需要跟随的物体
+   <font color=Coral face="加粗"> Follow</font>： 相机需要跟随的物体
 
-    Look At：相机需要镜头对准的物体
+   <font color=Coral face="加粗"> Look At</font>：相机需要镜头对准的物体
 
-    Standby Update：相机待命时的更新方式，当虚拟相机物体没有被禁用，但是优先级不足时，虚拟相机处于待命状态。这个属性会影响性能，通常设置为Never是最好的，但是有时候可能需要虚拟相机更新来做一些镜头相关的计算判断。
-        * Never 不更新
-        * Always 每帧更新
-        * Round Robin 循环更新：所有的待命虚拟相机循环更新，每帧更新一个相机（例如有10个待命的相机，第一帧更新第一个相机，第2帧更新第2个相机，….，第11帧更新第1个相机，以此类推）
+   <font color=Coral face="加粗">Standby Update </font>：相机待命时的更新方式，当虚拟相机物体没有被禁用，但是优先级不足时，虚拟相机处于待命状态。这个属性会影响性能，通常设置为Never是最好的，但是有时候可能需要虚拟相机更新来做一些镜头相关的计算判断。
+   * <font color=Coral face="加粗"> Never</font> 不更新
+   * <font color=Coral face="加粗"> Always</font> 每帧更新
+   * <font color=Coral face="加粗"> Round Robin</font> 循环更新：所有的待命虚拟相机循环更新，每帧更新一个相机（例如有10个待命的相机，第一帧更新第一个相机，第2帧更新第2个相机，….，第11帧更新第1个相机，以此类推）
 
-    Lens：镜头设置，对应Unity相机中的属性，也可以从Preset中选择或者从现有的设置创建新的Preset。
-        Field of view: 
-        Near Clip Plane: 近裁面
-        Far Clip Plane:  远裁面
-        Dutch:   Camera Z roll，or tilt ，in degrees 。 这个属性在Unity相机中是没有的，可以用来控制镜头的旋转。（在屏幕空间的旋转）
+   <font color=Coral face="加粗">Lens： </font>镜头设置，对应Unity相机中的属性，也可以从Preset中选择或者从现有的设置创建新的Preset。
+      <font color=Coral face="加粗"> Field of view</font>: 
+      <font color=Coral face="加粗">Near Clip Plane: </font> 近裁面
+      <font color=Coral face="加粗">Far Clip Plane </font>:  远裁面
+      <font color=Coral face="加粗"> Dutch</font>:   Camera Z roll，or tilt ，in degrees 。 这个属性在Unity相机中是没有的，可以用来控制镜头的旋转。（在屏幕空间的旋转）
 
-    Transitions: 相机转换的相关设置
+   <font color=Coral face="加粗"> Transitions</font>: 相机转换的相关设置
 
-        Blend Hint: 混合方式
-            None:无，默认线性混合
-            Spherical Position:根据Look At的物体球面旋转混合
-            Cylindrical Position:根据Look At的物体柱面旋转混合（水平方向圆弧，垂直方向线性）
-            Screen Space Aim When Targets Differ:在屏幕空间瞄准目标
+   <font color=Coral face="加粗">Blend Hint </font>: 混合方式
+            <font color=Coral face="加粗">None </font>:无，默认线性混合
+            <font color=Coral face="加粗">Spherical Position </font>:根据Look At的物体球面旋转混合
+            <font color=Coral face="加粗"> Cylindrical Position</font>:根据Look At的物体柱面旋转混合（水平方向圆弧，垂直方向线性）
+            <font color=Coral face="加粗"> Screen Space Aim When Targets Differ</font>:在屏幕空间瞄准目标
 
-        Inherit Position: 下一个相机变成活动相机时，从上一个相机继承位置，即保持两个相机位置相同。
+   <font color=Coral face="加粗"> Inherit Position</font>: 下一个相机变成活动相机时，从上一个相机继承位置，即保持两个相机位置相同。
 
-        On Camera Live: 相机激活事件：事件，相机变为活动时会触发对应的事件。
+   <font color=Coral face="加粗">On Camera Live </font>: 相机激活事件：事件，相机变为活动时会触发对应的事件。
 
 
 

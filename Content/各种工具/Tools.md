@@ -11,7 +11,9 @@
 - [Sublime Text]()
 - [Notepad++]()
 - [Beyond Compare 4]() --- 文件比较工具
-  
+
+- [SwitchyOmega]() --- vpn 工具 浏览器安装 SwitchyOmega工具 ，导入.bak工具。 pc导入jason 配置。
+
 - [Criware: 1、有自己专有音频编码器，不是用的mpc vorbis这些公共编码，压缩比高，音质好，0延迟 2、有视频组件，可以在UI上用半透视屏](https://www.criware.com/cn/products/adx2.html)
 * * *
   
