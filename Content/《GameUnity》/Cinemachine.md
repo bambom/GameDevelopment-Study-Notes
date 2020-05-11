@@ -38,9 +38,7 @@
    * <font color=Coral face="加粗"> Events：</font>
       <font color=Coral face="加粗"> Camera cut</font>：任何虚拟相机要进入控制并且没有融合的时候切入到这个相机前，出发该事件。
       <font color=Coral face="加粗"> Camera Actived</font>：相机激活的时候出发，cut或融合的方式都在第一帧触发该事件。
-
-![](MediaTimeline/CinemachineMenue.jpg)
-
+<div align=center><img  src="MediaTimeline/CinemachineMenue.jpg"/></div>
 
 
 <br><br><br><br><br><br><br><br>
@@ -57,7 +55,8 @@
             * <font color=Coral face="加粗"> Follow</font> 属性设置了物体，Body设置为Framing Composer
 
    <font color=Coral face="加粗"> Save During Play</font>：虚拟相机的属性在运行时的修改可以被保存下来，退出Play状态时不会被重置。它是通过Cinemachine命名空间中的一个特殊的属性[SaveDuringPlay]。如果你自己的脚本也需要运行时保存的功能，只需要在类上加上这个属性即可。如果不想要类中的某些成员在运行时保存，可以给这些成员加上[NoSaveDuringPlay]属性。
-![](MediaTimeline/SaveDuringPlay.png)
+
+   <div align=center><img  src="MediaTimeline/SaveDuringPlay.png"/></div>
 
    <font color=Coral face="加粗"> Priority</font>：虚拟相机的优先级，用于Live镜头的选择。数值越高代表优先级越高。Cinemachine Brain会根据这个属性从所有激活的虚拟相机中选择活动的虚拟相机。在Timeline上使用时这个属性不生效。
 
@@ -115,8 +114,7 @@ Body: 主要用于设置相机的移动是的算法 .
 
 <font color=Coral face="加粗">Framing Transposer </font>算法是为2D和正交相机设计的，主要用于2D情况。但是对于透视相机和3D环境也可以使用。<br>
 
-![](MediaTimeline/FramingTransposer.png)
-
+   <div align=center><img  src="MediaTimeline/FramingTransposer.png"/></div>
 <br>
 这个算法工作流程大概是：首先沿着相机的Z轴移动相机直到<font color=Coral face="加粗">Camera Distance </font>距离的XY平面上，然后在XY面上平移，直到目标物体在屏幕空间到达期望的位置。
 <br>
@@ -134,8 +132,7 @@ Body: 主要用于设置相机的移动是的算法 .
 <br>
 <font color=Coral face="加粗">Z Damping</font>：相机在Z轴上移动的阻力系数。较小的值会使相机反应更快。较大的值会使相机的反应速度变慢。
 <br><br>
-
-![](MediaTimeline/FramingTransposer1.jpg)
+<div align=center><img  src="MediaTimeline/FramingTransposer1.jpg"/></div>
 <br><br>
 
 <font color=Coral face="加粗">Screen X</font>：目标的水平屏幕位置。相机移动的结果是使目标处于此位置。<br>
@@ -165,7 +162,7 @@ Cinemachine Target Group组件可以让多个GameObjects作为一个组，设置
 4、点击加号后，设置GameObject、权重和半径。<br>
 5、可以重复多次3-4步来添加更多物体。<br>
 
- ![](MediaTimeline/CinemachineTargetGroup.png)<br>
+<div align=center><img  src="MediaTimeline/CinemachineTargetGroup.png"/></div>
 
 <font color=Coral face="加粗">属性详解</font><br>
 <font color=Coral face="加粗">Position Mode</font> 如何计算Group的位置<br>
@@ -187,7 +184,8 @@ Cinemachine Target Group组件可以让多个GameObjects作为一个组，设置
 <table><tr><td bgcolor=#6495ED><font color=black size=5> ----------Hard Lock To Target算法---------- </font> </td></tr></table>
 <font color=#6495ED size=4> Hard Lock To Target </font> : 虚拟相机和跟随目标使用相同位置。Unity相机保持和目标位置一致，即位置同步
 
-![](MediaTimeline/HardLockToTarget.png)<br>
+<div align=center><img  src="MediaTimeline/HardLockToTarget.png"/></div>
+<br>
 <font color=Coral face="加粗"> Damping </font>：相机追赶上目标位置的时间。如果为0，那就是保持同步，如果大于0，相当于经过多少秒相机和目标位置重合。
 
 
