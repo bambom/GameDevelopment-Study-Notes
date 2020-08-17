@@ -3,10 +3,25 @@
 
   <h3 id = "#01"></h3>
 
-Timeline 寄托于PlayableDirector 组件，通过编辑Timeline序列将数据存于 【.playable】 中，通过寄托于PlayableDirector组件进行播放。
+<div align=center><img  src="MediaTimeline/TimelineTrackMenue.png"/></div>
+
+Timeline 是寄托于PlayableDirector 组件，通过编辑Timeline序列将数据存于 【.playable】 中，通过寄托于PlayableDirector组件进行播放。可以通过PlayableDirector控制Timeline的暂定开始等。
+<br>
+<br>
+Timeline 支持嵌套实例
+
 Track： timeline 的构成基础轨道原子。
 
+<br>
+<br><br>
+<table><tr><td bgcolor=#6495ED><font color=black size=5> ---------- Target Group Track---------- </font> </td></tr></table>
 Track Group: 管理Track分组
+
+
+
+
+<br><br>
+<table><tr><td bgcolor=#6495ED><font color=black size=5> ---------- Activation Track---------- </font> </td></tr></table>
 
 1、使用Activation 控制流程
 Activation Track: 是一种在Timeline动画中可内嵌动画片段的Track。可以使用它在一些动画特定的地方添加一些额外完整的动画到Timeline中。例如背景上爆炸效果，屏幕上风吹过时的烟尘。主要用于对多个动画进行组合的时候在特定的时间进行显示和隐藏。
@@ -20,6 +35,8 @@ Leave As Is: 保持状态为TImelineAsset 结束的的状态
 ![](MediaTimeline/Activation_Track_Inspactor.png)
 
 
+<br><br>
+<table><tr><td bgcolor=#6495ED><font color=black size=5> ---------- Animation Track---------- </font> </td></tr></table>
 2、在Timelime控制和编辑动画和组件。
 timeline asset：选中或创建一个GO作为想要表现的剧情动画的节点，作为创建Assetline aasset的容器。然后就可以对timelineAsset进行编辑。
 
@@ -33,6 +50,11 @@ Animation Track: 这是一个动画组件，有两种方式可以表现动画，
 
 ![](MediaTimeline/Editor_Clip.png)
 
+
+
+
+<br><br>
+<table><tr><td bgcolor=#6495ED><font color=black size=5> ---------- Audio Track---------- </font> </td></tr></table>
 3、使用Audio Track。
 Audio Track: 两种方式创建AudioTrack，直接拖拽一个Audio到timeline 或者手动创建一个。
 属性:
@@ -42,15 +64,75 @@ SpatialBlend: 空间混合
 属性分三大部分：Clip Timing 控制音频在Timeline 中的位置和时间，速度等。s秒表示f帧所在的时间。BlendCurves:表示开始结束的淡入淡出曲线。 AudioPlayableAsset:控制音量和是否循环。
 
 
-Control Track: 用来控制多个timeline在时间轴上的表现
-Signal Track:
-Playable Track:
+
+<br><br>
+<table><tr><td bgcolor=#6495ED><font color=black size=5> ---------- Control Track---------- </font> </td></tr></table>
+用来支持嵌套的Timeline，一个timeline中可以用此Track支持多个Timeline。例如有个过场动画是角色走进场景的过程中，游戏里有一个板子移动到指定位置。可以创建一个主的Timeline，上面控制角色动画和背景音乐。 然后嵌入一个子的timeline用来控制板子的动画。
+
+<div align=center><img  src="MediaTimeline/workflow_nesting_done.png"/></div>
+<br><br>
+<table><tr><td bgcolor=#6495ED><font color=black size=5> ---------- Signal Track---------- </font> </td></tr></table>
+Timeline中的帧事件Track。  在场景创建一个带有Signal Receiver的GO，在Timeline上添加相应的帧事件。
+
+
+<br><br>
+<table><tr><td bgcolor=#6495ED><font color=black size=5> ---------- Playable Track---------- </font> </td></tr></table>
+ 首先一个Track由三个重要部分组成： 
+  PlayableBehaviour：
+  Clip : PlayableAsset, ITimelineClipAsset
+  Track : TrackAsset
+
+
+<br><br>
+<table><tr><td bgcolor=#6495ED><font color=black size=5> ---------- Ciemachine Track---------- </font> </td></tr></table>
 Ciemachine Track:
+
+
+<br><br>
+<table><tr><td bgcolor=#4495EF><font color=black size=5> ---------- DefaultPlayables Track---------- </font> </td></tr></table>
+
 DefaultPlayables Track: 官方自带的做好的一些Track
 
 Sub Track： 一般叫覆盖轨道(Override Tracks),用于覆盖或者遮蔽原本的动画。SubTrack会晚安覆盖主track的animtion，可以使用Avatar Mask进行两个anim 的合并。
 
-![](MediaTimeline/timelineTrack.png)
+![](MediaTimeline/TimelineTrackMenue_Defult.png)
+
+
+<font color=Coral face="加粗">Light Control Track</font><br>
+
+<font color=Coral face="加粗">Nav Mesh Agent Control Track</font><br>
+
+<font color=Coral face="加粗">Screen Fader Track</font><br>
+
+<font color=Coral face="加粗">Text Switcher Track</font><br>
+
+<font color=Coral face="加粗">Time Dilation Track</font><br>
+
+<font color=Coral face="加粗">Transform Tween Track</font><br>
+
+<font color=Coral face="加粗">TMP Text Switcher Track</font><br>
+
+
+
+
+
+
+
+
+<br><br>
+<table><tr><td bgcolor=#4495EF><font color=black size=5> ---------- Custem Track---------- </font> </td></tr></table>
+
+
+<font color=Coral face="加粗">AI Command Track</font><br>
+
+<font color=Coral face="加粗">Dialogue Track</font><br>
+
+<font color=Coral face="加粗">Light Track</font><br>
+
+<font color=Coral face="加粗">Time Machine Track</font><br>
+
+
+
 
 
 Unity Recorder:
@@ -68,3 +150,11 @@ Unity Recorder:
     Animation Clip：会记录录制的位置动作，位移，融合成一个单独的anim。
     Movie：
     Image Sequence：
+
+
+    TImeline思考：
+
+    整体上是个线性编辑器，从开始播放，到播放结束，每帧可以设置多个Clip。 Timeline本身带有时间轴的回溯。
+
+    适合制作线性的逻辑集合。 例如剧情Cutscence，一个角色的技能动作特效播放，关卡的节点指令配置。
+    可以将Timeline这部分线性的Editor编辑器部分提取出来作为通过编辑器。

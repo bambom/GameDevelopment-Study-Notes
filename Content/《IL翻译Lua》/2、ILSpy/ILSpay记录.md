@@ -185,6 +185,7 @@ IL_0000: nop
 }
 }
 
+
 进过各种Transform 后 得到这个
 
 {ILFunction Main {
@@ -233,6 +234,40 @@ IL_0000: nop
 ======================
 public int AddNum ();
 }
+{ILFunction AddNum {
+	param this : ICSharpCode.Decompiler.Tests.TestCases.Correctness.HollowWorldTest(Index=-1, LoadCount=0, AddressCount=0, StoreCount=1)
+	local x : System.Int32(Index=0, LoadCount=1, AddressCount=0, StoreCount=2) init
+	local y : System.Int32(Index=1, LoadCount=1, AddressCount=0, StoreCount=2) init
+	local CS$1$0000 : System.Int32(Index=2, LoadCount=1, AddressCount=0, StoreCount=2) init
+	stack S_0 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+	stack S_1 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+	stack S_2 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+	stack S_3 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+	stack S_4 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+	stack S_5 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+
+	BlockContainer {
+		Block IL_0000 (incoming: 1) {
+			nop
+			stloc S_0(ldc.i4 32)
+			stloc x(ldloc S_0)
+			stloc S_1(ldc.i4 18)
+			stloc y(ldloc S_1)
+			stloc S_2(ldloc x)
+			stloc S_3(ldloc y)
+			stloc S_4(binary.add.i4(ldloc S_2, ldloc S_3))
+			stloc CS$1$0000(ldloc S_4)
+			br IL_000d
+		}
+
+		Block IL_000d (incoming: 1) {
+			stloc S_5(ldloc CS$1$0000)
+			leave IL_0000 (ldloc S_5)
+		}
+
+	}
+}
+}
 
 
 {ILFunction AddNum {
@@ -257,6 +292,81 @@ public int AddNum ();
 }
 }
 
+
+{ILFunction Main {
+	param args : System.String[](Index=0, LoadCount=0, AddressCount=0, StoreCount=1)
+	local condition : System.Boolean(Index=0, LoadCount=1, AddressCount=0, StoreCount=2) init
+	local a : System.Int32(Index=1, LoadCount=1, AddressCount=0, StoreCount=2) init
+	local b : System.Int32(Index=2, LoadCount=0, AddressCount=0, StoreCount=2) init
+	local CS$1$0000 : System.Int32(Index=3, LoadCount=1, AddressCount=0, StoreCount=2) init
+	stack S_0 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+	stack S_1 : System.Int32(LoadCount=2, AddressCount=0, StoreCount=1)
+	stack S_2 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+	stack S_3 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+	stack S_4 : System.Object(LoadCount=1, AddressCount=0, StoreCount=2)
+	stack S_5 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+	stack S_6 : System.Int32(LoadCount=1, AddressCount=0, StoreCount=1)
+
+	BlockContainer {
+		Block IL_0000 (incoming: 1) {
+			nop
+			stloc S_0(ldc.i4 1)
+			stloc condition(ldloc S_0)
+			stloc S_1(ldc.i4 2)
+			stloc S_2(ldloc S_1)
+			stloc b(ldloc S_2)
+			stloc a(ldloc S_1)
+			stloc S_3(ldloc condition)
+			if (ldloc S_3) br IL_0011
+			br IL_000a
+		}
+
+		Block IL_000a (incoming: 1) {
+			stloc S_4(ldstr "false")
+			br IL_0016
+		}
+
+		Block IL_0011 (incoming: 1) {
+			stloc S_4(ldstr "true")
+			br IL_0016
+		}
+
+		Block IL_0016 (incoming: 2) {
+			nop
+			call WriteLine(ldloc S_4)
+			nop
+			stloc S_5(ldloc a)
+			stloc CS$1$0000(ldloc S_5)
+			br IL_0021
+		}
+
+		Block IL_0021 (incoming: 1) {
+			stloc S_6(ldloc CS$1$0000)
+			leave IL_0000 (ldloc S_6)
+		}
+
+	}
+}
+}
+
+
+
+{ILFunction Main {
+	local condition : System.Boolean(Index=0, LoadCount=1, AddressCount=0, StoreCount=1)
+	local a : System.Int32(Index=1, LoadCount=1, AddressCount=0, StoreCount=1)
+	local b : System.Int32(Index=2, LoadCount=0, AddressCount=0, StoreCount=1)
+
+	BlockContainer {
+		Block IL_0000 (incoming: 1) {
+			stloc condition(ldc.i4 1)
+			stloc a(stloc b(ldc.i4 2))
+			call WriteLine(if (ldloc condition) ldstr "true" else ldstr "false")
+			leave IL_0000 (ldloc a)
+		}
+
+	}
+}
+}
 =====================================================
 
 
